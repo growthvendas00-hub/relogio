@@ -6,12 +6,7 @@ const root = new URL("../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
 
 test("storefront includes the MVP sales flow", async () => {
-  const [storefront, styles, layout] = await Promise.all([
-    read("app/storefront.tsx"),
-    read("app/globals.css"),
-    read("app/layout.tsx"),
-  ]);
-
+  const [storefront, styles, layout] = await Promise.all([read("app/storefront.tsx"), read("app/globals.css"), read("app/layout.tsx")]);
   assert.match(storefront, /AURUM/);
   assert.match(storefront, /5528999187401/);
   assert.match(storefront, /40000/);
@@ -24,21 +19,20 @@ test("storefront includes the MVP sales flow", async () => {
   await access(new URL("public/og.png", root));
 });
 
-test("admin and persistent catalog are protected and configured", async () => {
-  const [adminPage, adminClient, auth, hosting, schema, migration] = await Promise.all([
-    read("app/admin/page.tsx"),
-    read("app/admin/admin-dashboard.tsx"),
-    read("lib/admin-auth.ts"),
-    read(".openai/hosting.json"),
-    read("db/schema.ts"),
-    read("drizzle/0000_cool_old_lace.sql"),
+test("admin uses protected sessions and Vercel Blob persistence", async () => {
+  const [adminPage, adminClient, auth, session, uploads, catalog, environment, vercel] = await Promise.all([
+    read("app/admin/page.tsx"), read("app/admin/admin-dashboard.tsx"), read("lib/admin-auth.ts"),
+    read("app/api/admin/session/route.ts"), read("app/api/uploads/route.ts"), read("lib/product-store.ts"),
+    read(".env.example"), read("vercel.json"),
   ]);
-
   assert.match(adminPage, /requireAdminPage/);
-  assert.match(adminClient, /\/api\/uploads/);
+  assert.match(adminClient, /@vercel\/blob\/client/);
   assert.match(adminClient, /method: "PATCH"/);
-  assert.match(auth, /ADMIN_EMAIL/);
-  assert.deepEqual(JSON.parse(hosting), { d1: "DB", r2: "MEDIA" });
-  assert.match(schema, /products_price_nonnegative/);
-  assert.match(migration, /products_active_featured_idx/);
+  assert.match(auth, /AUTH_SECRET/);
+  assert.match(session, /httpOnly: true/);
+  assert.match(session, /sameSite: "strict"/);
+  assert.match(uploads, /maximumSizeInBytes/);
+  assert.match(catalog, /BLOB_READ_WRITE_TOKEN/);
+  assert.match(environment, /ADMIN_EMAIL=malagoligrowth@gmail\.com/);
+  assert.equal(JSON.parse(vercel).framework, "nextjs");
 });

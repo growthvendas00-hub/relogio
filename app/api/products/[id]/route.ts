@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { del } from "@vercel/blob";
 import { getAdminUser } from "@/lib/admin-auth";
 import { deleteProduct, updateProduct } from "@/lib/product-store";
 import { findProduct } from "@/lib/product-store";
@@ -41,9 +41,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (!isSafeProductImage(nextUrl, nextKey)) return Response.json({ error: "A referência da foto é inválida." }, { status: 400 });
     }
     const product = await updateProduct(id, payload);
-    if (product && current.imageKey && current.imageKey !== product.imageKey) {
-      const runtimeEnv = env as unknown as { MEDIA?: R2Bucket };
-      await runtimeEnv.MEDIA?.delete(current.imageKey);
+    if (product && current.imageKey && current.imageKey !== product.imageKey && current.imageUrl.includes(".blob.vercel-storage.com/")) {
+      await del(current.imageUrl).catch(() => undefined);
     }
     return product ? Response.json({ product }) : Response.json({ error: "Produto não encontrado." }, { status: 404 });
   } catch (error) {
@@ -58,9 +57,5 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   const product = await deleteProduct(id);
   if (!product) return Response.json({ error: "Produto não encontrado." }, { status: 404 });
 
-  if (product.imageKey) {
-    const runtimeEnv = env as unknown as { MEDIA?: R2Bucket };
-    await runtimeEnv.MEDIA?.delete(product.imageKey);
-  }
   return Response.json({ deleted: true });
 }

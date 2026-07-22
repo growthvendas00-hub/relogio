@@ -1,98 +1,47 @@
-# vinext-starter
+# AURUM — e-commerce de relógios
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+MVP responsivo de uma loja de relógios masculinos com estética de luxo urbano, carrinho e fechamento do pedido pelo WhatsApp. Inclui painel administrativo para editar produtos, preços, estoque, descrições e fotos sem alterar o código.
 
-## Prerequisites
+## Publicar na Vercel
 
-- Node.js `>=22.13.0`
+1. Importe este repositório em [vercel.com/new](https://vercel.com/new).
+2. Mantenha o framework detectado como **Next.js** e publique o primeiro deploy.
+3. No projeto da Vercel, abra **Storage**, crie um banco **Blob** público e conecte-o ao projeto. A Vercel adicionará `BLOB_READ_WRITE_TOKEN` automaticamente.
+4. Em **Settings → Environment Variables**, adicione:
+   - `ADMIN_EMAIL`: `malagoligrowth@gmail.com`
+   - `ADMIN_PASSWORD`: uma senha forte com pelo menos 10 caracteres
+   - `AUTH_SECRET`: um segredo aleatório com pelo menos 32 caracteres
+5. Faça um novo deploy para aplicar as variáveis.
+6. Acesse `/admin`, entre com a senha escolhida e cadastre seus produtos.
 
-## Quick Start
+As variáveis devem ser habilitadas em Production. Se quiser testar o painel em deploys de prévia, habilite-as também em Preview. Nunca salve senhas reais no repositório.
+
+## Como funciona
+
+- A vitrine inicia com três produtos demonstrativos.
+- O catálogo editado e as imagens ficam persistidos no Vercel Blob.
+- Fotos aceitas: JPG, PNG ou WebP, com até 8 MB.
+- A sessão administrativa expira após 12 horas e usa cookie seguro.
+- O carrinho é salvo no navegador do cliente.
+- O pedido é enviado para o WhatsApp `+55 28 99918-7401`.
+- Frete grátis em compras acima de R$ 400, garantia de 30 dias e envio imediato.
+
+## Desenvolvimento local
+
+Requer Node.js 22.
 
 ```bash
 npm install
+copy .env.example .env.local
 npm run dev
+```
+
+Para editar o catálogo localmente, preencha `.env.local` com um token de uma loja Vercel Blob de desenvolvimento e credenciais administrativas. Sem o token, a vitrine continua exibindo os produtos demonstrativos, mas o painel não grava alterações.
+
+## Validação
+
+```bash
+npm run lint
+npm test
 npm run build
 ```
-
-This starter does not use `wrangler.jsonc`.
-
-## Included Shape
-
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
-```
-
-## Optional Dispatch-Owned ChatGPT Sign-In
-
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
-
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
-
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
-
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
-
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
-
-## Useful Commands
-
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
-
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)

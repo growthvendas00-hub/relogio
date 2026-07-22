@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { upload } from "@vercel/blob/client";
 
 type Product = {
   id: string; slug: string; name: string; eyebrow: string; description: string;
@@ -67,8 +68,16 @@ export function AdminDashboard({ userName }: { userName: string }) {
 
   function handleFile(nextFile?: File) {
     if (!nextFile) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(nextFile.type)) {
+      setNotice({ type: "error", text: "Use uma imagem JPG, PNG ou WebP." });
+      return;
+    }
+    if (nextFile.size > 8 * 1024 * 1024) {
+      setNotice({ type: "error", text: "A imagem deve ter no máximo 8 MB." });
+      return;
+    }
     if (preview.startsWith("blob:")) URL.revokeObjectURL(preview);
-    setFile(nextFile); setPreview(URL.createObjectURL(nextFile));
+    setNotice(null); setFile(nextFile); setPreview(URL.createObjectURL(nextFile));
   }
 
   async function submit(event: React.FormEvent) {
@@ -76,11 +85,12 @@ export function AdminDashboard({ userName }: { userName: string }) {
     try {
       let imageUrl = form.imageUrl; let imageKey = form.imageKey;
       if (file) {
-        const uploadData = new FormData(); uploadData.set("file", file);
-        const uploadResponse = await fetch("/api/uploads", { method: "POST", body: uploadData });
-        const upload = await uploadResponse.json();
-        if (!uploadResponse.ok) throw new Error(upload.error);
-        imageUrl = upload.url; imageKey = upload.key;
+        const blob = await upload(`products/${file.name}`, file, {
+          access: "public",
+          handleUploadUrl: "/api/uploads",
+          clientPayload: JSON.stringify({ size: file.size, type: file.type }),
+        });
+        imageUrl = blob.url; imageKey = blob.pathname;
       }
       if (!imageUrl) throw new Error("Selecione uma foto do relógio.");
       const payload = { ...form, priceCents: toCents(form.price), compareAtPriceCents: form.compareAtPrice ? toCents(form.compareAtPrice) : null, stock: Number(form.stock), imageUrl, imageKey };
@@ -105,9 +115,14 @@ export function AdminDashboard({ userName }: { userName: string }) {
     else { const data = await response.json(); setNotice({ type: "error", text: data.error }); }
   }
 
+  async function signOut() {
+    await fetch("/api/admin/session", { method: "DELETE" });
+    window.location.assign("/admin/login");
+  }
+
   return (
     <main className="admin-shell">
-      <aside className="admin-sidebar"><Link className="brand" href="/"><span>A</span>AURUM</Link><nav><a className="active" href="#catalogo">Catálogo</a><Link href="/" target="_blank">Ver loja ↗</Link></nav><div><span>Administrador</span><strong>{userName}</strong><a href="/signout-with-chatgpt?return_to=/">Sair</a></div></aside>
+      <aside className="admin-sidebar"><Link className="brand" href="/"><span>A</span>AURUM</Link><nav><a className="active" href="#catalogo">Catálogo</a><Link href="/" target="_blank">Ver loja ↗</Link></nav><div><span>Administrador</span><strong>{userName}</strong><button type="button" onClick={signOut}>Sair</button></div></aside>
       <section className="admin-main" id="catalogo">
         <header className="admin-header"><div><span>Painel administrativo</span><h1>Catálogo</h1><p>Cadastre e mantenha os relógios exibidos na sua loja.</p></div><button className="button primary" onClick={openNew}>Novo produto <b>+</b></button></header>
         {notice && <div className={`admin-notice ${notice.type}`} role="status">{notice.text}<button onClick={() => setNotice(null)}>×</button></div>}

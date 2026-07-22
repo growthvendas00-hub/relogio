@@ -6,7 +6,12 @@ export function isAllowedMutationOrigin(request: Request) {
 
 export function isSafeProductImage(imageUrl: string, imageKey?: string | null) {
   if (imageKey) {
-    return imageKey.startsWith("products/") && imageUrl === `/api/media/${imageKey}`;
+    try {
+      const url = new URL(imageUrl);
+      return url.hostname.endsWith(".blob.vercel-storage.com") && imageKey.startsWith("products/") && url.pathname.slice(1) === imageKey;
+    } catch {
+      return false;
+    }
   }
   return imageUrl.startsWith("/products/");
 }

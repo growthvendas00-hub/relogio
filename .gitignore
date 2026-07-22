@@ -17,6 +17,8 @@
 /.next/
 /.vinext/
 /out/
+/dist/
+/.wrangler/
 
 # misc
 .DS_Store
@@ -30,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -37,7 +40,3 @@ yarn-error.log*
 # typescript
 next-env.d.ts
 *.tsbuildinfo
-/dist/
-/.wrangler/
-/outputs/
-/work/

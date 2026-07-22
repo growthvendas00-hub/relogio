@@ -1,144 +1,147 @@
-import { env } from "cloudflare:workers";
-import { asc, desc, eq } from "drizzle-orm";
-import { getDb } from "@/db";
-import { products, type NewProduct, type Product } from "@/db/schema";
+import "server-only";
+import { del, list, put } from "@vercel/blob";
 
-const demoProducts: NewProduct[] = [
+export type Product = {
+  id: string;
+  slug: string;
+  name: string;
+  eyebrow: string;
+  description: string;
+  priceCents: number;
+  compareAtPriceCents: number | null;
+  stock: number;
+  category: string;
+  caseColor: string;
+  strap: string;
+  movement: string;
+  waterResistance: string;
+  imageUrl: string;
+  imageKey: string | null;
+  featured: boolean;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProductInput = Omit<Product, "createdAt" | "updatedAt"> & {
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+const CATALOG_PREFIX = "aurum/catalog/";
+const MAX_CATALOG_VERSIONS = 5;
+
+const demoProducts: Product[] = [
   {
-    id: "atlas-black",
-    slug: "atlas-black",
-    name: "Atlas Black",
-    eyebrow: "Best-seller",
+    id: "atlas-black", slug: "atlas-black", name: "Atlas Black", eyebrow: "Best-seller",
     description: "Minimalismo em preto fosco com marcadores dourados. Presença marcante para o trabalho e para a noite.",
-    priceCents: 34990,
-    compareAtPriceCents: 39990,
-    stock: 8,
-    category: "Urbano",
-    caseColor: "Preto fosco",
-    strap: "Aço escovado",
-    movement: "Quartzo japonês",
-    waterResistance: "3 ATM",
-    imageUrl: "/products/atlas-black.png",
-    featured: true,
-    active: true,
+    priceCents: 34990, compareAtPriceCents: 39990, stock: 8, category: "Urbano", caseColor: "Preto fosco",
+    strap: "Aço escovado", movement: "Quartzo japonês", waterResistance: "3 ATM",
+    imageUrl: "/products/atlas-black.png", imageKey: null, featured: true, active: true,
+    createdAt: "2026-07-22T00:00:00.000Z", updatedAt: "2026-07-22T00:00:00.000Z",
   },
   {
-    id: "monarque-gold",
-    slug: "monarque-gold",
-    name: "Monarque Gold",
-    eyebrow: "Edição dourada",
+    id: "monarque-gold", slug: "monarque-gold", name: "Monarque Gold", eyebrow: "Edição dourada",
     description: "Acabamento dourado escovado e mostrador preto profundo para ocasiões que pedem um nível a mais.",
-    priceCents: 42990,
-    compareAtPriceCents: 47990,
-    stock: 5,
-    category: "Premium",
-    caseColor: "Dourado",
-    strap: "Aço escovado",
-    movement: "Quartzo japonês",
-    waterResistance: "3 ATM",
-    imageUrl: "/products/monarque-gold.png",
-    featured: true,
-    active: true,
+    priceCents: 42990, compareAtPriceCents: 47990, stock: 5, category: "Premium", caseColor: "Dourado",
+    strap: "Aço escovado", movement: "Quartzo japonês", waterResistance: "3 ATM",
+    imageUrl: "/products/monarque-gold.png", imageKey: null, featured: true, active: true,
+    createdAt: "2026-07-22T00:00:00.000Z", updatedAt: "2026-07-22T00:00:00.000Z",
   },
   {
-    id: "horizon-steel",
-    slug: "horizon-steel",
-    name: "Horizon Steel",
-    eyebrow: "Clássico contemporâneo",
+    id: "horizon-steel", slug: "horizon-steel", name: "Horizon Steel", eyebrow: "Clássico contemporâneo",
     description: "Caixa em aço, mostrador azul-marinho e pulseira em couro. Versátil do escritório ao fim de semana.",
-    priceCents: 38990,
-    compareAtPriceCents: null,
-    stock: 11,
-    category: "Casual",
-    caseColor: "Prata",
-    strap: "Couro azul-marinho",
-    movement: "Quartzo japonês",
-    waterResistance: "3 ATM",
-    imageUrl: "/products/horizon-steel.png",
-    featured: false,
-    active: true,
+    priceCents: 38990, compareAtPriceCents: null, stock: 11, category: "Casual", caseColor: "Prata",
+    strap: "Couro azul-marinho", movement: "Quartzo japonês", waterResistance: "3 ATM",
+    imageUrl: "/products/horizon-steel.png", imageKey: null, featured: false, active: true,
+    createdAt: "2026-07-22T00:00:00.000Z", updatedAt: "2026-07-22T00:00:00.000Z",
   },
 ];
 
-let schemaReady: Promise<void> | null = null;
-
-export async function ensureProductSchema() {
-  if (schemaReady) return schemaReady;
-
-  schemaReady = (async () => {
-    const database = env.DB;
-    await database.batch([
-      database.prepare(`CREATE TABLE IF NOT EXISTS products (
-        id TEXT PRIMARY KEY NOT NULL,
-        slug TEXT NOT NULL UNIQUE,
-        name TEXT NOT NULL,
-        eyebrow TEXT NOT NULL DEFAULT 'Coleção Urbana',
-        description TEXT NOT NULL,
-        price_cents INTEGER NOT NULL CHECK (price_cents >= 0),
-        compare_at_price_cents INTEGER CHECK (compare_at_price_cents IS NULL OR compare_at_price_cents >= 0),
-        stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
-        category TEXT NOT NULL DEFAULT 'Casual',
-        case_color TEXT NOT NULL DEFAULT 'Preto',
-        strap TEXT NOT NULL DEFAULT 'Aço',
-        movement TEXT NOT NULL DEFAULT 'Quartzo',
-        water_resistance TEXT NOT NULL DEFAULT '3 ATM',
-        image_url TEXT NOT NULL,
-        image_key TEXT,
-        featured INTEGER NOT NULL DEFAULT 0 CHECK (featured IN (0, 1)),
-        active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )`),
-      database.prepare("CREATE INDEX IF NOT EXISTS products_active_featured_idx ON products (active, featured)"),
-      database.prepare("CREATE INDEX IF NOT EXISTS products_category_idx ON products (category)"),
-    ]);
-
-    const count = await database.prepare("SELECT COUNT(*) AS total FROM products").first<{ total: number }>();
-    if (!count?.total) {
-      const db = getDb();
-      await db.insert(products).values(demoProducts).onConflictDoNothing();
-    }
-  })().catch((error) => {
-    schemaReady = null;
-    throw error;
-  });
-
-  return schemaReady;
+function blobConfigured() {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
-export async function listProducts(includeInactive = false): Promise<Product[]> {
-  await ensureProductSchema();
-  const db = getDb();
-  if (includeInactive) {
-    return db.select().from(products).orderBy(desc(products.featured), asc(products.name));
-  }
-  return db.select().from(products).where(eq(products.active, true)).orderBy(desc(products.featured), asc(products.name));
+function validateCatalog(value: unknown): Product[] {
+  if (!Array.isArray(value)) throw new Error("O catálogo armazenado está em formato inválido.");
+  return value.map((item) => {
+    if (!item || typeof item !== "object") throw new Error("O catálogo contém um produto inválido.");
+    const product = item as Product;
+    if (!product.id || !product.slug || !product.name || !product.imageUrl || !Number.isInteger(product.priceCents)) {
+      throw new Error("O catálogo contém dados obrigatórios ausentes.");
+    }
+    return product;
+  });
+}
+
+async function readCatalog() {
+  if (!blobConfigured()) return demoProducts;
+  const result = await list({ prefix: CATALOG_PREFIX, limit: 100 });
+  const latest = result.blobs.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())[0];
+  if (!latest) return demoProducts;
+
+  const response = await fetch(latest.url, { cache: "no-store" });
+  if (!response.ok) throw new Error("Não foi possível ler o catálogo da Vercel Blob.");
+  return validateCatalog(await response.json());
+}
+
+async function writeCatalog(products: Product[]) {
+  if (!blobConfigured()) throw new Error("Configure BLOB_READ_WRITE_TOKEN na Vercel antes de editar o catálogo.");
+  const pathname = `${CATALOG_PREFIX}${Date.now()}-${crypto.randomUUID()}.json`;
+  await put(pathname, JSON.stringify(products), {
+    access: "public",
+    contentType: "application/json; charset=utf-8",
+    cacheControlMaxAge: 60,
+  });
+
+  const versions = await list({ prefix: CATALOG_PREFIX, limit: 100 });
+  const obsolete = versions.blobs
+    .sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())
+    .slice(MAX_CATALOG_VERSIONS)
+    .map((blob) => blob.url);
+  if (obsolete.length) await del(obsolete);
+}
+
+export async function listProducts(includeInactive = false) {
+  const products = await readCatalog();
+  return products
+    .filter((product) => includeInactive || product.active)
+    .sort((a, b) => Number(b.featured) - Number(a.featured) || a.name.localeCompare(b.name, "pt-BR"));
 }
 
 export async function findProduct(id: string) {
-  await ensureProductSchema();
-  const [product] = await getDb().select().from(products).where(eq(products.id, id)).limit(1);
-  return product ?? null;
+  return (await readCatalog()).find((product) => product.id === id) ?? null;
 }
 
-export async function createProduct(input: NewProduct) {
-  await ensureProductSchema();
-  const [product] = await getDb().insert(products).values(input).returning();
+export async function createProduct(input: ProductInput) {
+  const products = await readCatalog();
+  if (products.some((product) => product.slug === input.slug)) throw new Error("Já existe um produto com esse nome.");
+  const now = new Date().toISOString();
+  const product: Product = { ...input, createdAt: input.createdAt ?? now, updatedAt: input.updatedAt ?? now };
+  await writeCatalog([...products, product]);
   return product;
 }
 
-export async function updateProduct(id: string, input: Partial<NewProduct>) {
-  await ensureProductSchema();
-  const [product] = await getDb()
-    .update(products)
-    .set({ ...input, updatedAt: new Date().toISOString() })
-    .where(eq(products.id, id))
-    .returning();
-  return product ?? null;
+export async function updateProduct(id: string, input: Partial<ProductInput>) {
+  const products = await readCatalog();
+  const index = products.findIndex((product) => product.id === id);
+  if (index < 0) return null;
+  if (input.slug && products.some((product, productIndex) => productIndex !== index && product.slug === input.slug)) {
+    throw new Error("Já existe um produto com esse nome.");
+  }
+  const product = { ...products[index], ...input, id, updatedAt: new Date().toISOString() };
+  products[index] = product;
+  await writeCatalog(products);
+  return product;
 }
 
 export async function deleteProduct(id: string) {
-  await ensureProductSchema();
-  const [product] = await getDb().delete(products).where(eq(products.id, id)).returning();
-  return product ?? null;
+  const products = await readCatalog();
+  const product = products.find((item) => item.id === id);
+  if (!product) return null;
+  await writeCatalog(products.filter((item) => item.id !== id));
+  if (product.imageKey && product.imageUrl.includes(".blob.vercel-storage.com/")) {
+    await del(product.imageUrl).catch(() => undefined);
+  }
+  return product;
 }
