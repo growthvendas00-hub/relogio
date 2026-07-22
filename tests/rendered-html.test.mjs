@@ -12,11 +12,15 @@ test("storefront includes the MVP sales flow", async () => {
   assert.match(storefront, /40000/);
   assert.match(storefront, /Garantia de 30 dias/);
   assert.match(storefront, /Envio imediato/);
+  assert.match(storefront, /\/hero\/aurum-watch\.mp4/);
+  assert.match(storefront, /heroVideoRef/);
+  assert.match(storefront, /video\.currentTime = targetTime/);
   assert.match(storefront, /localStorage\.setItem\("aurum-cart"/);
   assert.match(styles, /@media \(max-width:720px\)/);
   assert.match(styles, /prefers-reduced-motion/);
   assert.match(layout, /og\.png/);
   await access(new URL("public/og.png", root));
+  await access(new URL("public/hero/aurum-watch.mp4", root));
 });
 
 test("admin uses protected sessions and Vercel Blob persistence", async () => {

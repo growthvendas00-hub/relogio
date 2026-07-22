@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Product = {
   id: string;
@@ -40,6 +40,8 @@ export function Storefront() {
   const [selected, setSelected] = useState<Product | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [toast, setToast] = useState("");
+  const heroRef = useRef<HTMLElement>(null);
+  const heroVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -60,6 +62,53 @@ export function Storefront() {
     return () => document.body.classList.remove("no-scroll");
   }, [cartOpen, selected, menuOpen]);
 
+  useEffect(() => {
+    const hero = heroRef.current;
+    const video = heroVideoRef.current;
+    const stage = hero?.querySelector<HTMLElement>(".hero-stage");
+    if (!hero || !video || !stage) return;
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let animationFrame = 0;
+
+    const syncHero = () => {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(() => {
+        const heroBounds = hero.getBoundingClientRect();
+        const stageBounds = stage.getBoundingClientRect();
+        const stickyTop = Number.parseFloat(window.getComputedStyle(stage).top) || 0;
+        const travel = Math.max(1, heroBounds.height - stageBounds.height);
+        const progress = reducedMotion.matches ? 0 : Math.min(1, Math.max(0, (stickyTop - heroBounds.top) / travel));
+        hero.style.setProperty("--hero-progress", progress.toFixed(4));
+
+        if (!reducedMotion.matches && video.readyState >= 1 && Number.isFinite(video.duration)) {
+          const targetTime = progress * Math.max(0, video.duration - 0.08);
+          if (Math.abs(video.currentTime - targetTime) > 0.045) video.currentTime = targetTime;
+        }
+      });
+    };
+
+    const prepareVideo = () => {
+      if (video.currentTime === 0) video.currentTime = 0.001;
+      syncHero();
+    };
+
+    video.pause();
+    video.addEventListener("loadedmetadata", prepareVideo);
+    reducedMotion.addEventListener("change", syncHero);
+    window.addEventListener("scroll", syncHero, { passive: true });
+    window.addEventListener("resize", syncHero);
+    syncHero();
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      video.removeEventListener("loadedmetadata", prepareVideo);
+      reducedMotion.removeEventListener("change", syncHero);
+      window.removeEventListener("scroll", syncHero);
+      window.removeEventListener("resize", syncHero);
+    };
+  }, []);
+
   const categories = ["Todos", ...Array.from(new Set(products.map((product) => product.category)))];
   const filtered = products.filter((product) => {
     const haystack = `${product.name} ${product.description} ${product.category}`.toLowerCase();
@@ -72,7 +121,7 @@ export function Storefront() {
   const count = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const freeShippingRemaining = Math.max(0, 40000 - subtotal);
 
-  const heroProduct = useMemo(() => products.find((product) => product.featured) ?? products[0], [products]);
+  const heroProduct = useMemo(() => products.find((product) => product.slug === "horizon-steel") ?? products.find((product) => product.featured) ?? products[0], [products]);
 
   function addToCart(product: Product) {
     setCart((current) => ({ ...current, [product.id]: Math.min(product.stock, (current[product.id] ?? 0) + 1) }));
@@ -112,21 +161,28 @@ export function Storefront() {
         </div>
       </header>
 
-      <section className="hero" id="top">
-        <div className="hero-copy">
-          <span className="section-kicker">Nova coleção · 2026</span>
-          <h1>Seu tempo.<br /><em>Sua presença.</em></h1>
-          <p>Relógios masculinos para quem transforma cada detalhe em identidade. Design urbano, acabamento marcante e versatilidade real.</p>
-          <div className="hero-actions">
-            <a href="#colecao" className="button primary">Explorar coleção <span>↗</span></a>
-            <button className="text-link" onClick={() => heroProduct && setSelected(heroProduct)}>Ver destaque</button>
+      <section className="hero hero-scroll" id="top" ref={heroRef} aria-label="Apresentação AURUM">
+        <div className="hero-stage">
+          <video ref={heroVideoRef} className="hero-video" src="/hero/aurum-watch.mp4" muted playsInline preload="auto" aria-hidden="true" />
+          <div className="hero-video-shade" />
+          <div className="hero-copy hero-scroll-copy">
+            <span className="section-kicker">Nova coleção · 2026</span>
+            <h1>Seu tempo.<br /><em>Sua presença.</em></h1>
+            <p>Relógios masculinos para quem transforma cada detalhe em identidade. Design urbano, acabamento marcante e versatilidade real.</p>
+            <div className="hero-actions">
+              <a href="#colecao" className="button primary">Explorar coleção <span>↗</span></a>
+              <button className="text-link" onClick={() => heroProduct && setSelected(heroProduct)}>Ver destaque</button>
+            </div>
+            <div className="hero-stats"><div><strong>30</strong><span>dias de garantia</span></div><div><strong>24h</strong><span>para envio</span></div><div><strong>BR</strong><span>entrega nacional</span></div></div>
           </div>
-          <div className="hero-stats"><div><strong>30</strong><span>dias de garantia</span></div><div><strong>24h</strong><span>para envio</span></div><div><strong>BR</strong><span>entrega nacional</span></div></div>
-        </div>
-        <div className="hero-visual">
-          <div className="hero-index">01 <span>/ 03</span></div>
-          {heroProduct && <button className="hero-product" onClick={() => setSelected(heroProduct)} aria-label={`Ver detalhes do ${heroProduct.name}`}><img src={heroProduct.imageUrl} alt={heroProduct.name} /></button>}
-          <div className="hero-caption"><span>Destaque</span><strong>{heroProduct?.name}</strong><small>{heroProduct ? money(heroProduct.priceCents) : ""}</small></div>
+          {heroProduct && <aside className="hero-watch-meta" aria-label={`Destaque ${heroProduct.name}`}>
+            <span>Em destaque</span>
+            <div><h2>{heroProduct.name}</h2><p>{heroProduct.caseColor} · {heroProduct.strap}</p></div>
+            <strong>{money(heroProduct.priceCents)}</strong>
+            <button onClick={() => setSelected(heroProduct)}>Conhecer modelo <span>↗</span></button>
+          </aside>}
+          <div className="hero-scroll-cue" aria-hidden="true"><span>Role para explorar</span><i /></div>
+          <div className="hero-progress" aria-hidden="true"><span>01</span><i /><small>02</small></div>
         </div>
       </section>
 
