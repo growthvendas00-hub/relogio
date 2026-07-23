@@ -15,6 +15,7 @@ test("storefront includes the MVP sales flow", async () => {
   assert.match(storefront, /\/hero\/aurum-watch\.mp4/);
   assert.match(storefront, /heroVideoRef/);
   assert.match(storefront, /video\.currentTime = targetTime/);
+  assert.match(storefront, /loading="lazy" decoding="async"/);
   assert.match(storefront, /localStorage\.setItem\("aurum-cart"/);
   assert.match(styles, /@media \(max-width:720px\)/);
   assert.match(styles, /prefers-reduced-motion/);
@@ -31,6 +32,9 @@ test("admin uses protected sessions and Vercel Blob persistence", async () => {
   ]);
   assert.match(adminPage, /requireAdminPage/);
   assert.match(adminClient, /@vercel\/blob\/client/);
+  assert.match(adminClient, /optimizeProductImage/);
+  assert.match(adminClient, /maxImageDimension = 1600/);
+  assert.match(adminClient, /mutatingProductId/);
   assert.match(adminClient, /method: "PATCH"/);
   assert.match(auth, /AUTH_SECRET/);
   assert.match(session, /httpOnly: true/);
