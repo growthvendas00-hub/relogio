@@ -1,6 +1,8 @@
 export function isAllowedMutationOrigin(request: Request) {
   const origin = request.headers.get("origin");
-  if (!origin) return true;
+  const fetchSite = request.headers.get("sec-fetch-site");
+  if (fetchSite && !["same-origin", "none"].includes(fetchSite)) return false;
+  if (!origin) return process.env.NODE_ENV !== "production";
   return origin === new URL(request.url).origin;
 }
 
@@ -8,10 +10,13 @@ export function isSafeProductImage(imageUrl: string, imageKey?: string | null) {
   if (imageKey) {
     try {
       const url = new URL(imageUrl);
-      return url.hostname.endsWith(".blob.vercel-storage.com") && imageKey.startsWith("products/") && url.pathname.slice(1) === imageKey;
+      return url.protocol === "https:"
+        && url.hostname.endsWith(".blob.vercel-storage.com")
+        && /^products\/[^/]+\.(?:jpe?g|png|webp)$/i.test(imageKey)
+        && url.pathname.slice(1) === imageKey;
     } catch {
       return false;
     }
   }
-  return imageUrl.startsWith("/products/");
+  return /^\/products\/[^/]+\.(?:jpe?g|png|webp)$/i.test(imageUrl);
 }

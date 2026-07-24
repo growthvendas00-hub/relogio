@@ -38,6 +38,15 @@ npm run dev
 
 Para editar o catálogo localmente, preencha `.env.local` com um token de uma loja Vercel Blob de desenvolvimento e credenciais administrativas. Sem o token, a vitrine continua exibindo os produtos demonstrativos, mas o painel não grava alterações.
 
+## Segurança e futura integração PIX
+
+- O painel usa sessão assinada, cookie `HttpOnly`, proteção de origem e limite de tentativas de login.
+- As rotas administrativas validam novamente preço, estoque, visibilidade, texto e referências de imagem no servidor.
+- As respostas de API não são armazenadas em cache e o site envia CSP, proteção contra iframe, MIME sniffing e políticas restritivas do navegador.
+- Antes de aceitar PIX, crie pedidos e valores em um banco no servidor. Nunca aceite total, status de pagamento ou identificador de produto calculado somente pelo navegador.
+- Confirme pagamentos exclusivamente por webhook assinado do provedor, com idempotência, proteção contra repetição, conferência do valor e registro de auditoria.
+- Não marque um pedido como pago pelo simples retorno do cliente à página de sucesso.
+
 ## Validação
 
 ```bash

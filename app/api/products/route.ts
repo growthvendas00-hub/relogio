@@ -18,18 +18,22 @@ function parseProduct(payload: Record<string, unknown>) {
   const name = String(payload.name ?? "").trim();
   const description = String(payload.description ?? "").trim();
   const imageUrl = String(payload.imageUrl ?? "").trim();
-  const priceCents = Number(payload.priceCents);
-  const stock = Number(payload.stock);
+  const priceCents = payload.priceCents;
+  const stock = payload.stock;
 
   if (!name || !description || !imageUrl) throw new Error("Preencha nome, descrição e foto.");
   if (name.length > 120 || description.length > 1200) throw new Error("Nome ou descrição excede o limite permitido.");
-  if (!Number.isInteger(priceCents) || priceCents < 0) throw new Error("Informe um preço válido.");
-  if (!Number.isInteger(stock) || stock < 0) throw new Error("Informe um estoque válido.");
+  if (typeof priceCents !== "number" || !Number.isInteger(priceCents) || priceCents <= 0 || priceCents > 100_000_000) {
+    throw new Error("Informe um preço válido.");
+  }
+  if (typeof stock !== "number" || !Number.isInteger(stock) || stock < 0 || stock > 100_000) {
+    throw new Error("Informe um estoque válido.");
+  }
 
   const compareAt = payload.compareAtPriceCents === undefined || payload.compareAtPriceCents === null || payload.compareAtPriceCents === ""
     ? null
-    : Number(payload.compareAtPriceCents);
-  if (compareAt !== null && (!Number.isInteger(compareAt) || compareAt < 0)) {
+    : payload.compareAtPriceCents;
+  if (compareAt !== null && (typeof compareAt !== "number" || !Number.isInteger(compareAt) || compareAt <= 0 || compareAt > 100_000_000)) {
     throw new Error("Informe um preço anterior válido.");
   }
   if (payload.active !== undefined && typeof payload.active !== "boolean") throw new Error("Informe uma visibilidade válida.");

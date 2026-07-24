@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 import { readStoredCart, reconcileCart, updateCartQuantity } from "../lib/cart.ts";
+import { isAllowedMutationOrigin, isSafeProductImage } from "../lib/request-security.ts";
 
 const root = new URL("../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
@@ -34,11 +35,11 @@ test("storefront includes the MVP sales flow", async () => {
   ].map((name) => access(new URL(`public/products/${name}.webp`, root))));
 });
 
-test("admin uses protected sessions and Vercel Blob persistence", async () => {
-  const [adminPage, adminClient, auth, session, uploads, catalog, environment, vercel] = await Promise.all([
+test("admin uses protected sessions and confirmed Vercel Blob persistence", async () => {
+  const [adminPage, adminClient, auth, session, uploads, catalog, security, config, environment, vercel] = await Promise.all([
     read("app/admin/page.tsx"), read("app/admin/admin-dashboard.tsx"), read("lib/admin-auth.ts"),
     read("app/api/admin/session/route.ts"), read("app/api/uploads/route.ts"), read("lib/product-store.ts"),
-    read(".env.example"), read("vercel.json"),
+    read("lib/request-security.ts"), read("next.config.ts"), read(".env.example"), read("vercel.json"),
   ]);
   assert.match(adminPage, /requireAdminPage/);
   assert.match(adminClient, /@vercel\/blob\/client/);
@@ -49,9 +50,18 @@ test("admin uses protected sessions and Vercel Blob persistence", async () => {
   assert.match(auth, /AUTH_SECRET/);
   assert.match(session, /httpOnly: true/);
   assert.match(session, /sameSite: "strict"/);
+  assert.match(session, /consumeLoginAttempt/);
   assert.match(uploads, /maximumSizeInBytes/);
+  assert.match(uploads, /export async function DELETE/);
   assert.match(catalog, /BLOB_READ_WRITE_TOKEN/);
+  assert.match(catalog, /await del\(obsolete\)\.catch/);
   assert.match(adminClient, /storageConfigured/);
+  assert.match(adminClient, /atualizado e confirmado/);
+  assert.match(adminClient, /priceCents === null/);
+  assert.match(security, /sec-fetch-site/);
+  assert.match(config, /Content-Security-Policy/);
+  assert.match(config, /X-Frame-Options/);
+  assert.match(config, /poweredByHeader: false/);
   assert.match(environment, /ADMIN_EMAIL=malagoligrowth@gmail\.com/);
   assert.equal(JSON.parse(vercel).framework, "nextjs");
 });
@@ -62,4 +72,28 @@ test("cart survives reloads and respects the current inventory", () => {
   assert.deepEqual(reconcileCart({ atlas: 5, removed: 1 }, [{ id: "atlas", stock: 3 }]), { atlas: 3 });
   assert.deepEqual(updateCartQuantity({ atlas: 1 }, { id: "atlas", stock: 2 }, 1), { atlas: 2 });
   assert.deepEqual(updateCartQuantity({ atlas: 1 }, { id: "atlas", stock: 2 }, -1), {});
+});
+
+test("mutation origins and product image references are restricted", () => {
+  const sameOrigin = new Request("https://aurum.example/api/products/1", {
+    method: "PATCH",
+    headers: { origin: "https://aurum.example", "sec-fetch-site": "same-origin" },
+  });
+  const crossOrigin = new Request("https://aurum.example/api/products/1", {
+    method: "PATCH",
+    headers: { origin: "https://evil.example", "sec-fetch-site": "cross-site" },
+  });
+  assert.equal(isAllowedMutationOrigin(sameOrigin), true);
+  assert.equal(isAllowedMutationOrigin(crossOrigin), false);
+  assert.equal(isSafeProductImage("/products/watch.webp"), true);
+  assert.equal(isSafeProductImage("/products/../secret.webp"), false);
+  assert.equal(isSafeProductImage("javascript:alert(1)"), false);
+  assert.equal(isSafeProductImage(
+    "https://store.public.blob.vercel-storage.com/products/watch.webp",
+    "products/watch.webp",
+  ), true);
+  assert.equal(isSafeProductImage(
+    "http://store.public.blob.vercel-storage.com/products/watch.webp",
+    "products/watch.webp",
+  ), false);
 });

@@ -25,8 +25,12 @@ const blank: FormState = {
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 const toCents = (value: string) => {
   const normalized = value.trim().replace(/\s/g, "");
-  const decimal = normalized.includes(",") ? normalized.replace(/\./g, "").replace(",", ".") : normalized;
-  return Math.round(Number(decimal) * 100);
+  const decimal = normalized.includes(",")
+    ? normalized.replace(/\./g, "").replace(",", ".")
+    : normalized;
+  if (!/^\d+(?:\.\d{1,2})?$/.test(decimal)) return null;
+  const cents = Math.round(Number(decimal) * 100);
+  return Number.isSafeInteger(cents) && cents > 0 && cents <= 100_000_000 ? cents : null;
 };
 const maxUploadBytes = 8 * 1024 * 1024;
 const maxImageDimension = 1600;
@@ -72,9 +76,11 @@ export function AdminDashboard({ userName }: { userName: string }) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       setProducts(data.products);
-      setStorageConfigured(data.storageConfigured !== false);
+      setStorageConfigured(data.storageConfigured === true);
+      return data.products as Product[];
     } catch (error) { setNotice({ type: "error", text: error instanceof Error ? error.message : "Não foi possível carregar o catálogo." }); }
     finally { setLoading(false); }
+    return null;
   }
 
   useEffect(() => {
@@ -104,8 +110,13 @@ export function AdminDashboard({ userName }: { userName: string }) {
   }
 
   function catalogIsWritable() {
-    if (storageConfigured !== false) return true;
-    setNotice({ type: "error", text: "O armazenamento da loja ainda não está conectado. Crie um Vercel Blob público, conecte-o ao projeto e faça um novo deploy." });
+    if (storageConfigured === true) return true;
+    setNotice({
+      type: "error",
+      text: storageConfigured === false
+        ? "O armazenamento da loja ainda não está conectado. Crie um Vercel Blob público, conecte-o ao projeto e faça um novo deploy."
+        : "Aguarde o catálogo terminar de carregar antes de editar.",
+    });
     return false;
   }
 
@@ -133,7 +144,15 @@ export function AdminDashboard({ userName }: { userName: string }) {
     event.preventDefault();
     if (!catalogIsWritable()) return;
     if (optimizing) { setNotice({ type: "error", text: "Aguarde a otimização da foto terminar." }); return; }
+    const priceCents = toCents(form.price);
+    const compareAtPriceCents = form.compareAtPrice ? toCents(form.compareAtPrice) : null;
+    if (priceCents === null || (form.compareAtPrice && compareAtPriceCents === null)) {
+      setNotice({ type: "error", text: "Informe os preços no formato 349,90." });
+      return;
+    }
     setSaving(true); setNotice(null);
+    let uploadedImage: { imageUrl: string; imageKey: string } | null = null;
+    let catalogSaved = false;
     try {
       let imageUrl = form.imageUrl; let imageKey = form.imageKey;
       if (file) {
@@ -143,14 +162,29 @@ export function AdminDashboard({ userName }: { userName: string }) {
           clientPayload: JSON.stringify({ size: file.size, type: file.type }),
         });
         imageUrl = blob.url; imageKey = blob.pathname;
+        uploadedImage = { imageUrl: blob.url, imageKey: blob.pathname };
       }
       if (!imageUrl) throw new Error("Selecione uma foto do relógio.");
-      const payload = { ...form, priceCents: toCents(form.price), compareAtPriceCents: form.compareAtPrice ? toCents(form.compareAtPrice) : null, stock: Number(form.stock), imageUrl, imageKey };
+      const payload = { ...form, priceCents, compareAtPriceCents, stock: Number(form.stock), imageUrl, imageKey };
       const response = await fetch(form.id ? `/api/products/${form.id}` : "/api/products", { method: form.id ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
-      await load(); setPanelOpen(false); setNotice({ type: "success", text: form.id ? "Produto atualizado com sucesso." : "Produto adicionado ao catálogo." });
-    } catch (error) { setNotice({ type: "error", text: error instanceof Error ? error.message : "Não foi possível salvar o produto." }); }
+      catalogSaved = true;
+      const confirmed = await load();
+      if (!confirmed?.some((item) => item.id === data.product.id && item.priceCents === priceCents && item.active === form.active)) {
+        throw new Error("A alteração foi enviada, mas não pôde ser confirmada. Recarregue o painel antes de tentar novamente.");
+      }
+      setPanelOpen(false); setNotice({ type: "success", text: form.id ? "Produto atualizado e confirmado na loja." : "Produto adicionado e confirmado no catálogo." });
+    } catch (error) {
+      if (uploadedImage && !catalogSaved) {
+        await fetch("/api/uploads", {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(uploadedImage),
+        }).catch(() => undefined);
+      }
+      setNotice({ type: "error", text: error instanceof Error ? error.message : "Não foi possível salvar o produto." });
+    }
     finally { setSaving(false); }
   }
 
@@ -160,8 +194,12 @@ export function AdminDashboard({ userName }: { userName: string }) {
     setMutatingProductId(product.id);
     try {
       const response = await fetch(`/api/products/${product.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ active: !product.active }) });
-      if (response.ok) { setProducts((current) => current.map((item) => item.id === product.id ? { ...item, active: !item.active } : item)); setNotice({ type: "success", text: `${product.name} agora está ${product.active ? "oculto" : "visível"} na loja.` }); }
-      else { const data = await response.json(); setNotice({ type: "error", text: data.error }); }
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      const confirmed = await load();
+      const savedProduct = confirmed?.find((item) => item.id === product.id);
+      if (!savedProduct || savedProduct.active !== !product.active) throw new Error("A visibilidade não pôde ser confirmada. Recarregue o painel.");
+      setNotice({ type: "success", text: `${product.name} agora está ${savedProduct.active ? "visível" : "oculto"} na loja.` });
     } catch (error) {
       setNotice({ type: "error", text: error instanceof Error ? error.message : "Não foi possível alterar a visibilidade." });
     } finally { setMutatingProductId(null); }
@@ -174,8 +212,11 @@ export function AdminDashboard({ userName }: { userName: string }) {
     setMutatingProductId(product.id);
     try {
       const response = await fetch(`/api/products/${product.id}`, { method: "DELETE" });
-      if (response.ok) { setProducts((current) => current.filter((item) => item.id !== product.id)); setNotice({ type: "success", text: "Produto excluído." }); }
-      else { const data = await response.json(); setNotice({ type: "error", text: data.error }); }
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      const confirmed = await load();
+      if (!confirmed || confirmed.some((item) => item.id === product.id)) throw new Error("A exclusão não pôde ser confirmada. Recarregue o painel.");
+      setNotice({ type: "success", text: "Produto excluído e remoção confirmada." });
     } catch (error) {
       setNotice({ type: "error", text: error instanceof Error ? error.message : "Não foi possível excluir o produto." });
     } finally { setMutatingProductId(null); }

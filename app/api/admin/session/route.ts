@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminSessionCookie, createAdminSession, verifyAdminPassword } from "@/lib/admin-auth";
+import { clearLoginAttempts, consumeLoginAttempt } from "@/lib/login-rate-limit";
 import { isAllowedMutationOrigin } from "@/lib/request-security";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,13 @@ function clearSession(response: NextResponse) {
 
 export async function POST(request: Request) {
   if (!isAllowedMutationOrigin(request)) return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
+  const rateLimit = consumeLoginAttempt(request);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Muitas tentativas. Aguarde alguns minutos antes de tentar novamente." },
+      { status: 429, headers: { "retry-after": String(rateLimit.retryAfterSeconds), "cache-control": "no-store" } },
+    );
+  }
   try {
     const { password } = (await request.json()) as { password?: unknown };
     if (typeof password !== "string" || !(await verifyAdminPassword(password))) {
@@ -24,6 +32,7 @@ export async function POST(request: Request) {
     }
 
     const response = NextResponse.json({ authenticated: true });
+    clearLoginAttempts(rateLimit.key);
     response.cookies.set(adminSessionCookie.name, await createAdminSession(), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

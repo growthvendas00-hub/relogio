@@ -23,13 +23,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (payload.name !== undefined && !String(payload.name).trim()) {
       return Response.json({ error: "O nome é obrigatório." }, { status: 400 });
     }
-    if (payload.priceCents !== undefined && (!Number.isInteger(Number(payload.priceCents)) || Number(payload.priceCents) < 0)) {
+    if (payload.priceCents !== undefined && (typeof payload.priceCents !== "number" || !Number.isInteger(payload.priceCents) || payload.priceCents <= 0 || payload.priceCents > 100_000_000)) {
       return Response.json({ error: "Informe um preço válido." }, { status: 400 });
     }
-    if (payload.stock !== undefined && (!Number.isInteger(Number(payload.stock)) || Number(payload.stock) < 0)) {
+    if (payload.stock !== undefined && (typeof payload.stock !== "number" || !Number.isInteger(payload.stock) || payload.stock < 0 || payload.stock > 100_000)) {
       return Response.json({ error: "Informe um estoque válido." }, { status: 400 });
     }
-    if (payload.compareAtPriceCents !== undefined && payload.compareAtPriceCents !== null && (!Number.isInteger(Number(payload.compareAtPriceCents)) || Number(payload.compareAtPriceCents) < 0)) {
+    if (payload.compareAtPriceCents !== undefined && payload.compareAtPriceCents !== null && (typeof payload.compareAtPriceCents !== "number" || !Number.isInteger(payload.compareAtPriceCents) || payload.compareAtPriceCents <= 0 || payload.compareAtPriceCents > 100_000_000)) {
       return Response.json({ error: "Informe um preço anterior válido." }, { status: 400 });
     }
     if (payload.active !== undefined && typeof payload.active !== "boolean") {

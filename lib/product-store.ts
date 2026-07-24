@@ -30,6 +30,8 @@ export type ProductInput = Omit<Product, "createdAt" | "updatedAt"> & {
 
 const CATALOG_PREFIX = "aurum/catalog/";
 const MAX_CATALOG_VERSIONS = 5;
+const useMemoryCatalog = process.env.AURUM_TEST_STORAGE === "memory" && !process.env.VERCEL;
+const globalCatalog = globalThis as typeof globalThis & { aurumMemoryCatalog?: Product[] };
 
 const demoProducts: Product[] = [
   {
@@ -131,7 +133,7 @@ const demoProducts: Product[] = [
 ];
 
 export function catalogStorageConfigured() {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN) || useMemoryCatalog;
 }
 
 function validateCatalog(value: unknown): Product[] {
@@ -147,9 +149,12 @@ function validateCatalog(value: unknown): Product[] {
 }
 
 async function readCatalog() {
+  if (useMemoryCatalog) return structuredClone(globalCatalog.aurumMemoryCatalog ?? demoProducts);
   if (!catalogStorageConfigured()) return demoProducts;
   const result = await list({ prefix: CATALOG_PREFIX, limit: 100 });
-  const latest = result.blobs.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())[0];
+  const latest = result.blobs.sort((a, b) =>
+    b.uploadedAt.getTime() - a.uploadedAt.getTime() || b.pathname.localeCompare(a.pathname),
+  )[0];
   if (!latest) return demoProducts;
 
   const response = await fetch(latest.url, { cache: "no-store" });
@@ -159,6 +164,10 @@ async function readCatalog() {
 
 async function writeCatalog(products: Product[]) {
   if (!catalogStorageConfigured()) throw new Error("Configure BLOB_READ_WRITE_TOKEN na Vercel antes de editar o catálogo.");
+  if (useMemoryCatalog) {
+    globalCatalog.aurumMemoryCatalog = structuredClone(products);
+    return;
+  }
   const pathname = `${CATALOG_PREFIX}${Date.now()}-${crypto.randomUUID()}.json`;
   await put(pathname, JSON.stringify(products), {
     access: "public",
@@ -168,10 +177,10 @@ async function writeCatalog(products: Product[]) {
 
   const versions = await list({ prefix: CATALOG_PREFIX, limit: 100 });
   const obsolete = versions.blobs
-    .sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())
+    .sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime() || b.pathname.localeCompare(a.pathname))
     .slice(MAX_CATALOG_VERSIONS)
     .map((blob) => blob.url);
-  if (obsolete.length) await del(obsolete);
+  if (obsolete.length) await del(obsolete).catch(() => undefined);
 }
 
 export async function listProducts(includeInactive = false) {
