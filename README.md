@@ -6,7 +6,7 @@ MVP responsivo de uma loja de relógios masculinos com estética de luxo urbano,
 
 1. Importe este repositório em [vercel.com/new](https://vercel.com/new).
 2. Mantenha o framework detectado como **Next.js** e publique o primeiro deploy.
-3. No projeto da Vercel, abra **Storage**, crie um banco **Blob** público e conecte-o ao projeto. A Vercel adicionará `BLOB_READ_WRITE_TOKEN` automaticamente.
+3. No projeto da Vercel, abra **Storage**, crie um banco **Blob** público e conecte-o ao projeto. Conexões novas usam OIDC e criam `BLOB_STORE_ID`/`BLOB_WEBHOOK_PUBLIC_KEY`; conexões antigas podem usar `BLOB_READ_WRITE_TOKEN`.
 4. Em **Settings → Environment Variables**, adicione:
    - `ADMIN_EMAIL`: `malagoligrowth@gmail.com`
    - `ADMIN_PASSWORD`: uma senha forte com pelo menos 10 caracteres
@@ -36,7 +36,7 @@ copy .env.example .env.local
 npm run dev
 ```
 
-Para editar o catálogo localmente, preencha `.env.local` com um token de uma loja Vercel Blob de desenvolvimento e credenciais administrativas. Sem o token, a vitrine continua exibindo os produtos demonstrativos, mas o painel não grava alterações.
+Para editar o catálogo localmente, preencha `.env.local` com um token de uma loja Vercel Blob de desenvolvimento e credenciais administrativas. Em produção na Vercel, a conexão OIDC fornece credenciais temporárias automaticamente. Sem nenhuma conexão Blob, a vitrine continua exibindo os produtos demonstrativos, mas o painel não grava alterações.
 
 ## Segurança e futura integração PIX
 

@@ -133,7 +133,7 @@ const demoProducts: Product[] = [
 ];
 
 export function catalogStorageConfigured() {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN) || useMemoryCatalog;
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID) || useMemoryCatalog;
 }
 
 function validateCatalog(value: unknown): Product[] {

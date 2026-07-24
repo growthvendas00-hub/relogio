@@ -54,6 +54,7 @@ test("admin uses protected sessions and confirmed Vercel Blob persistence", asyn
   assert.match(uploads, /maximumSizeInBytes/);
   assert.match(uploads, /export async function DELETE/);
   assert.match(catalog, /BLOB_READ_WRITE_TOKEN/);
+  assert.match(catalog, /BLOB_STORE_ID/);
   assert.match(catalog, /await del\(obsolete\)\.catch/);
   assert.match(adminClient, /storageConfigured/);
   assert.match(adminClient, /atualizado e confirmado/);
