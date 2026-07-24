@@ -56,9 +56,81 @@ const demoProducts: Product[] = [
     imageUrl: "/products/horizon-steel.png", imageKey: null, featured: false, active: true,
     createdAt: "2026-07-22T00:00:00.000Z", updatedAt: "2026-07-22T00:00:00.000Z",
   },
+  {
+    id: "skmei-1146", slug: "skmei-anadigi-1146-prata-preto", name: "Relógio Masculino SKMEI AnaDigi 1146 — Prata e Preto", eyebrow: "Esportivo ana-digital",
+    description: "Modelo robusto com caixa e pulseira em aço prateado, mostrador preto, leitura analógica e digital e detalhes vermelhos.",
+    priceCents: 24990, compareAtPriceCents: null, stock: 1, category: "Esportivo", caseColor: "Prata e preto",
+    strap: "Aço", movement: "Analógico e digital", waterResistance: "Consulte condições",
+    imageUrl: "/products/skmei-1146.webp", imageKey: null, featured: false, active: true,
+    createdAt: "2026-07-23T00:00:00.000Z", updatedAt: "2026-07-23T00:00:00.000Z",
+  },
+  {
+    id: "tuguir-tg1156", slug: "tuguir-anadigi-tg1156-prata-vermelho", name: "Relógio Masculino Tuguir AnaDigi TG1156 — Prata e Vermelho", eyebrow: "Performance urbana",
+    description: "Relógio ana-digital de presença marcante, com pulseira prateada, mostrador preto e aro interno vermelho.",
+    priceCents: 26990, compareAtPriceCents: null, stock: 1, category: "Esportivo", caseColor: "Prata, preto e vermelho",
+    strap: "Aço", movement: "Analógico e digital", waterResistance: "Consulte condições",
+    imageUrl: "/products/tuguir-tg1156.webp", imageKey: null, featured: false, active: true,
+    createdAt: "2026-07-23T00:00:00.000Z", updatedAt: "2026-07-23T00:00:00.000Z",
+  },
+  {
+    id: "skmei-2120-dourado", slug: "skmei-anadigi-2120-dourado", name: "Relógio Unissex SKMEI AnaDigi 2120 — Dourado", eyebrow: "Dourado contemporâneo",
+    description: "Visual minimalista com acabamento integral dourado, mostrador preto e display digital discreto às seis horas.",
+    priceCents: 21990, compareAtPriceCents: null, stock: 1, category: "Casual", caseColor: "Dourado e preto",
+    strap: "Aço", movement: "Analógico e digital", waterResistance: "Consulte condições",
+    imageUrl: "/products/skmei-2120-dourado.webp", imageKey: null, featured: false, active: true,
+    createdAt: "2026-07-23T00:00:00.000Z", updatedAt: "2026-07-23T00:00:00.000Z",
+  },
+  {
+    id: "skmei-2120-prata", slug: "skmei-anadigi-2120-prata", name: "Relógio Unissex SKMEI AnaDigi 2120 — Prata", eyebrow: "Minimalismo urbano",
+    description: "Acabamento prateado, mostrador preto limpo e display digital discreto para uma leitura versátil no dia a dia.",
+    priceCents: 19990, compareAtPriceCents: null, stock: 1, category: "Casual", caseColor: "Prata e preto",
+    strap: "Aço", movement: "Analógico e digital", waterResistance: "Consulte condições",
+    imageUrl: "/products/skmei-2120-prata.webp", imageKey: null, featured: false, active: true,
+    createdAt: "2026-07-23T00:00:00.000Z", updatedAt: "2026-07-23T00:00:00.000Z",
+  },
+  {
+    id: "skmei-0992", slug: "skmei-analogico-0992-prata-preto", name: "Relógio Masculino SKMEI Analógico 0992 — Prata e Preto", eyebrow: "Robusto essencial",
+    description: "Modelo analógico com caixa robusta, bezel preto aparafusado, pulseira bicolor em aço e calendário lateral.",
+    priceCents: 17990, compareAtPriceCents: null, stock: 1, category: "Esportivo", caseColor: "Prata e preto",
+    strap: "Aço bicolor", movement: "Quartzo analógico", waterResistance: "Consulte condições",
+    imageUrl: "/products/skmei-0992.webp", imageKey: null, featured: false, active: true,
+    createdAt: "2026-07-23T00:00:00.000Z", updatedAt: "2026-07-23T00:00:00.000Z",
+  },
+  {
+    id: "skmei-1649", slug: "skmei-anadigi-1649-prata-preto", name: "Relógio Masculino SKMEI AnaDigi 1649 — Prata e Preto", eyebrow: "Impacto esportivo",
+    description: "Caixa angular de grande presença, bezel preto numerado, pulseira em aço e múltiplas leituras digitais integradas.",
+    priceCents: 25990, compareAtPriceCents: null, stock: 1, category: "Esportivo", caseColor: "Prata e preto",
+    strap: "Aço", movement: "Analógico e digital", waterResistance: "3 ATM",
+    imageUrl: "/products/skmei-1649.webp", imageKey: null, featured: false, active: true,
+    createdAt: "2026-07-23T00:00:00.000Z", updatedAt: "2026-07-23T00:00:00.000Z",
+  },
+  {
+    id: "skmei-1335-dourado", slug: "skmei-digital-1335-dourado", name: "Relógio Masculino SKMEI Digital 1335 — Dourado", eyebrow: "Digital retrô",
+    description: "Caixa digital retangular com acabamento dourado escovado, pulseira em aço e tela multifunções de leitura ampla.",
+    priceCents: 22990, compareAtPriceCents: null, stock: 1, category: "Digital", caseColor: "Dourado e preto",
+    strap: "Aço", movement: "Digital", waterResistance: "5 ATM",
+    imageUrl: "/products/skmei-1335-dourado.webp", imageKey: null, featured: false, active: true,
+    createdAt: "2026-07-23T00:00:00.000Z", updatedAt: "2026-07-23T00:00:00.000Z",
+  },
+  {
+    id: "skmei-2049", slug: "skmei-anadigi-2049-prata", name: "Relógio Masculino SKMEI AnaDigi 2049 — Prata", eyebrow: "Tecnologia em aço",
+    description: "Mostrador preto com duas janelas digitais, leitura analógica sobreposta e pulseira prateada de três colunas.",
+    priceCents: 23990, compareAtPriceCents: null, stock: 1, category: "Esportivo", caseColor: "Prata e preto",
+    strap: "Aço", movement: "Analógico e digital", waterResistance: "3 ATM",
+    imageUrl: "/products/skmei-2049.webp", imageKey: null, featured: false, active: true,
+    createdAt: "2026-07-23T00:00:00.000Z", updatedAt: "2026-07-23T00:00:00.000Z",
+  },
+  {
+    id: "weide-wh5205", slug: "weide-anadigi-wh5205-prata-preto", name: "Relógio Masculino Weide AnaDigi WH-5205 — Prata e Preto", eyebrow: "Rugged premium",
+    description: "Caixa robusta em prata e preto, mostrador ana-digital multifunções, detalhes vermelhos e pulseira esportiva em borracha.",
+    priceCents: 28990, compareAtPriceCents: null, stock: 1, category: "Esportivo", caseColor: "Prata e preto",
+    strap: "Borracha preta", movement: "Analógico e digital", waterResistance: "Consulte condições",
+    imageUrl: "/products/weide-wh5205.webp", imageKey: null, featured: false, active: true,
+    createdAt: "2026-07-23T00:00:00.000Z", updatedAt: "2026-07-23T00:00:00.000Z",
+  },
 ];
 
-function blobConfigured() {
+export function catalogStorageConfigured() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
@@ -75,7 +147,7 @@ function validateCatalog(value: unknown): Product[] {
 }
 
 async function readCatalog() {
-  if (!blobConfigured()) return demoProducts;
+  if (!catalogStorageConfigured()) return demoProducts;
   const result = await list({ prefix: CATALOG_PREFIX, limit: 100 });
   const latest = result.blobs.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())[0];
   if (!latest) return demoProducts;
@@ -86,7 +158,7 @@ async function readCatalog() {
 }
 
 async function writeCatalog(products: Product[]) {
-  if (!blobConfigured()) throw new Error("Configure BLOB_READ_WRITE_TOKEN na Vercel antes de editar o catálogo.");
+  if (!catalogStorageConfigured()) throw new Error("Configure BLOB_READ_WRITE_TOKEN na Vercel antes de editar o catálogo.");
   const pathname = `${CATALOG_PREFIX}${Date.now()}-${crypto.randomUUID()}.json`;
   await put(pathname, JSON.stringify(products), {
     access: "public",

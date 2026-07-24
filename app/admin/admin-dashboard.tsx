@@ -23,7 +23,11 @@ const blank: FormState = {
 };
 
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
-const toCents = (value: string) => Math.round(Number(value.replace(".", "").replace(",", ".")) * 100);
+const toCents = (value: string) => {
+  const normalized = value.trim().replace(/\s/g, "");
+  const decimal = normalized.includes(",") ? normalized.replace(/\./g, "").replace(",", ".") : normalized;
+  return Math.round(Number(decimal) * 100);
+};
 const maxUploadBytes = 8 * 1024 * 1024;
 const maxImageDimension = 1600;
 
@@ -53,6 +57,7 @@ export function AdminDashboard({ userName }: { userName: string }) {
   const [saving, setSaving] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
   const [mutatingProductId, setMutatingProductId] = useState<string | null>(null);
+  const [storageConfigured, setStorageConfigured] = useState<boolean | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [notice, setNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -67,6 +72,7 @@ export function AdminDashboard({ userName }: { userName: string }) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       setProducts(data.products);
+      setStorageConfigured(data.storageConfigured !== false);
     } catch (error) { setNotice({ type: "error", text: error instanceof Error ? error.message : "Não foi possível carregar o catálogo." }); }
     finally { setLoading(false); }
   }
@@ -77,16 +83,30 @@ export function AdminDashboard({ userName }: { userName: string }) {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         setProducts(data.products);
+        setStorageConfigured(data.storageConfigured !== false);
       })
       .catch((error) => setNotice({ type: "error", text: error instanceof Error ? error.message : "Não foi possível carregar o catálogo." }))
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => () => { if (preview.startsWith("blob:")) URL.revokeObjectURL(preview); }, [preview]);
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !saving && !optimizing) setPanelOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [saving, optimizing]);
 
   function openNew() { setForm(blank); setFile(null); setPreview(""); setNotice(null); setPanelOpen(true); }
   function openEdit(product: Product) {
     setForm({ ...product, price: (product.priceCents / 100).toFixed(2).replace(".", ","), compareAtPrice: product.compareAtPriceCents ? (product.compareAtPriceCents / 100).toFixed(2).replace(".", ",") : "" });
     setFile(null); setPreview(product.imageUrl); setNotice(null); setPanelOpen(true);
+  }
+
+  function catalogIsWritable() {
+    if (storageConfigured !== false) return true;
+    setNotice({ type: "error", text: "O armazenamento da loja ainda não está conectado. Crie um Vercel Blob público, conecte-o ao projeto e faça um novo deploy." });
+    return false;
   }
 
   async function handleFile(nextFile?: File) {
@@ -111,6 +131,7 @@ export function AdminDashboard({ userName }: { userName: string }) {
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (!catalogIsWritable()) return;
     if (optimizing) { setNotice({ type: "error", text: "Aguarde a otimização da foto terminar." }); return; }
     setSaving(true); setNotice(null);
     try {
@@ -134,16 +155,20 @@ export function AdminDashboard({ userName }: { userName: string }) {
   }
 
   async function toggle(product: Product) {
+    if (!catalogIsWritable()) return;
     if (mutatingProductId) return;
     setMutatingProductId(product.id);
     try {
       const response = await fetch(`/api/products/${product.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ active: !product.active }) });
-      if (response.ok) { setProducts((current) => current.map((item) => item.id === product.id ? { ...item, active: !item.active } : item)); }
+      if (response.ok) { setProducts((current) => current.map((item) => item.id === product.id ? { ...item, active: !item.active } : item)); setNotice({ type: "success", text: `${product.name} agora está ${product.active ? "oculto" : "visível"} na loja.` }); }
       else { const data = await response.json(); setNotice({ type: "error", text: data.error }); }
+    } catch (error) {
+      setNotice({ type: "error", text: error instanceof Error ? error.message : "Não foi possível alterar a visibilidade." });
     } finally { setMutatingProductId(null); }
   }
 
   async function remove(product: Product) {
+    if (!catalogIsWritable()) return;
     if (mutatingProductId) return;
     if (!window.confirm(`Excluir ${product.name}? Esta ação não pode ser desfeita.`)) return;
     setMutatingProductId(product.id);
@@ -151,6 +176,8 @@ export function AdminDashboard({ userName }: { userName: string }) {
       const response = await fetch(`/api/products/${product.id}`, { method: "DELETE" });
       if (response.ok) { setProducts((current) => current.filter((item) => item.id !== product.id)); setNotice({ type: "success", text: "Produto excluído." }); }
       else { const data = await response.json(); setNotice({ type: "error", text: data.error }); }
+    } catch (error) {
+      setNotice({ type: "error", text: error instanceof Error ? error.message : "Não foi possível excluir o produto." });
     } finally { setMutatingProductId(null); }
   }
 
@@ -164,6 +191,7 @@ export function AdminDashboard({ userName }: { userName: string }) {
       <aside className="admin-sidebar"><Link className="brand" href="/"><span>A</span>AURUM</Link><nav><a className="active" href="#catalogo">Catálogo</a><Link href="/" target="_blank">Ver loja ↗</Link></nav><div><span>Administrador</span><strong>{userName}</strong><button type="button" onClick={signOut}>Sair</button></div></aside>
       <section className="admin-main" id="catalogo">
         <header className="admin-header"><div><span>Painel administrativo</span><h1>Catálogo</h1><p>Cadastre e mantenha os relógios exibidos na sua loja.</p></div><button className="button primary" onClick={openNew}>Novo produto <b>+</b></button></header>
+        {storageConfigured === false && <div className="admin-storage-warning" role="alert"><div><strong>Conecte o armazenamento para liberar as edições</strong><p>Os produtos demonstrativos estão em modo de leitura. Na Vercel, crie um Blob público, conecte ao projeto e faça um novo deploy.</p></div><a href="https://vercel.com/dashboard" target="_blank" rel="noreferrer">Abrir Vercel ↗</a></div>}
         {notice && <div className={`admin-notice ${notice.type}`} role="status">{notice.text}<button onClick={() => setNotice(null)}>×</button></div>}
         <div className="admin-stats"><article><span>Produtos cadastrados</span><strong>{String(stats.total).padStart(2, "0")}</strong></article><article><span>Visíveis na loja</span><strong>{String(stats.active).padStart(2, "0")}</strong></article><article><span>Unidades em estoque</span><strong>{String(stats.stock).padStart(2, "0")}</strong></article></div>
         <div className="admin-table-wrap"><div className="admin-table-heading"><h2>Seus relógios</h2><span>{products.length} produtos</span></div>
@@ -172,7 +200,7 @@ export function AdminDashboard({ userName }: { userName: string }) {
       </section>
 
       <div className={panelOpen ? "admin-overlay open" : "admin-overlay"} onClick={() => !saving && !optimizing && setPanelOpen(false)} />
-      <aside className={panelOpen ? "editor-panel open" : "editor-panel"} aria-hidden={!panelOpen}><form onSubmit={submit}>
+      <aside className={panelOpen ? "editor-panel open" : "editor-panel"} aria-hidden={!panelOpen} inert={!panelOpen}><form onSubmit={submit}>
         <div className="editor-heading"><div><span>{form.id ? "Editar produto" : "Novo produto"}</span><h2>{form.id ? form.name : "Adicionar relógio"}</h2></div><button type="button" onClick={() => setPanelOpen(false)} disabled={saving || optimizing}>×</button></div>
         <div className="editor-body">
           <label className="photo-upload"><span>Foto do relógio *</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={optimizing || saving} onChange={(event) => handleFile(event.target.files?.[0])} />{preview ? <img src={preview} alt="Prévia do produto" /> : <div><strong>+</strong><p>{optimizing ? "Otimizando foto..." : "Clique para enviar uma foto"}</p><small>JPG, PNG ou WebP · até 8 MB · otimização automática</small></div>}</label>

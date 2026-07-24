@@ -1,4 +1,4 @@
-import { createProduct, listProducts } from "@/lib/product-store";
+import { catalogStorageConfigured, createProduct, listProducts } from "@/lib/product-store";
 import { getAdminUser } from "@/lib/admin-auth";
 import { isAllowedMutationOrigin, isSafeProductImage } from "@/lib/request-security";
 
@@ -32,25 +32,38 @@ function parseProduct(payload: Record<string, unknown>) {
   if (compareAt !== null && (!Number.isInteger(compareAt) || compareAt < 0)) {
     throw new Error("Informe um preço anterior válido.");
   }
+  if (payload.active !== undefined && typeof payload.active !== "boolean") throw new Error("Informe uma visibilidade válida.");
+  if (payload.featured !== undefined && typeof payload.featured !== "boolean") throw new Error("Informe um destaque válido.");
 
   const slug = slugify(String(payload.slug || name));
   const imageKey = payload.imageKey ? String(payload.imageKey) : null;
   if (!slug) throw new Error("Use um nome com letras ou números.");
   if (!isSafeProductImage(imageUrl, imageKey)) throw new Error("A referência da foto é inválida.");
 
-  return {
-    name,
-    slug,
+  const text = {
     eyebrow: String(payload.eyebrow ?? "Coleção Urbana").trim(),
-    description,
-    priceCents,
-    compareAtPriceCents: compareAt,
-    stock,
     category: String(payload.category ?? "Casual").trim(),
     caseColor: String(payload.caseColor ?? "Preto").trim(),
     strap: String(payload.strap ?? "Aço").trim(),
     movement: String(payload.movement ?? "Quartzo").trim(),
     waterResistance: String(payload.waterResistance ?? "3 ATM").trim(),
+  };
+  if (Object.values(text).some((value) => value.length > 120)) throw new Error("Um dos campos excede o limite permitido.");
+  if (!text.category) throw new Error("Informe uma categoria.");
+
+  return {
+    name,
+    slug,
+    eyebrow: text.eyebrow,
+    description,
+    priceCents,
+    compareAtPriceCents: compareAt,
+    stock,
+    category: text.category,
+    caseColor: text.caseColor,
+    strap: text.strap,
+    movement: text.movement,
+    waterResistance: text.waterResistance,
     imageUrl,
     imageKey,
     featured: Boolean(payload.featured),
@@ -64,7 +77,10 @@ export async function GET(request: Request) {
     if (includeInactive && !(await getAdminUser())) {
       return Response.json({ error: "Acesso não autorizado." }, { status: 403 });
     }
-    return Response.json({ products: await listProducts(includeInactive) });
+    return Response.json({
+      products: await listProducts(includeInactive),
+      ...(includeInactive ? { storageConfigured: catalogStorageConfigured() } : {}),
+    });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Não foi possível carregar os produtos." }, { status: 500 });
   }

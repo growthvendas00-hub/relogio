@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { readStoredCart, reconcileCart, updateCartQuantity } from "@/lib/cart";
 
 type Product = {
   id: string;
@@ -26,6 +27,15 @@ const fallbackProducts: Product[] = [
   { id: "atlas-black", slug: "atlas-black", name: "Atlas Black", eyebrow: "Best-seller", description: "Minimalismo em preto fosco com marcadores dourados. Presença marcante para o trabalho e para a noite.", priceCents: 34990, compareAtPriceCents: 39990, stock: 8, category: "Urbano", caseColor: "Preto fosco", strap: "Aço escovado", movement: "Quartzo japonês", waterResistance: "3 ATM", imageUrl: "/products/atlas-black.png", featured: true, active: true },
   { id: "monarque-gold", slug: "monarque-gold", name: "Monarque Gold", eyebrow: "Edição dourada", description: "Acabamento dourado escovado e mostrador preto profundo para ocasiões que pedem um nível a mais.", priceCents: 42990, compareAtPriceCents: 47990, stock: 5, category: "Premium", caseColor: "Dourado", strap: "Aço escovado", movement: "Quartzo japonês", waterResistance: "3 ATM", imageUrl: "/products/monarque-gold.png", featured: true, active: true },
   { id: "horizon-steel", slug: "horizon-steel", name: "Horizon Steel", eyebrow: "Clássico contemporâneo", description: "Caixa em aço, mostrador azul-marinho e pulseira em couro. Versátil do escritório ao fim de semana.", priceCents: 38990, compareAtPriceCents: null, stock: 11, category: "Casual", caseColor: "Prata", strap: "Couro azul-marinho", movement: "Quartzo japonês", waterResistance: "3 ATM", imageUrl: "/products/horizon-steel.png", featured: false, active: true },
+  { id: "skmei-1146", slug: "skmei-anadigi-1146-prata-preto", name: "Relógio Masculino SKMEI AnaDigi 1146 — Prata e Preto", eyebrow: "Esportivo ana-digital", description: "Modelo robusto com caixa e pulseira em aço prateado, mostrador preto, leitura analógica e digital e detalhes vermelhos.", priceCents: 24990, compareAtPriceCents: null, stock: 1, category: "Esportivo", caseColor: "Prata e preto", strap: "Aço", movement: "Analógico e digital", waterResistance: "Consulte condições", imageUrl: "/products/skmei-1146.webp", featured: false, active: true },
+  { id: "tuguir-tg1156", slug: "tuguir-anadigi-tg1156-prata-vermelho", name: "Relógio Masculino Tuguir AnaDigi TG1156 — Prata e Vermelho", eyebrow: "Performance urbana", description: "Relógio ana-digital de presença marcante, com pulseira prateada, mostrador preto e aro interno vermelho.", priceCents: 26990, compareAtPriceCents: null, stock: 1, category: "Esportivo", caseColor: "Prata, preto e vermelho", strap: "Aço", movement: "Analógico e digital", waterResistance: "Consulte condições", imageUrl: "/products/tuguir-tg1156.webp", featured: false, active: true },
+  { id: "skmei-2120-dourado", slug: "skmei-anadigi-2120-dourado", name: "Relógio Unissex SKMEI AnaDigi 2120 — Dourado", eyebrow: "Dourado contemporâneo", description: "Visual minimalista com acabamento integral dourado, mostrador preto e display digital discreto às seis horas.", priceCents: 21990, compareAtPriceCents: null, stock: 1, category: "Casual", caseColor: "Dourado e preto", strap: "Aço", movement: "Analógico e digital", waterResistance: "Consulte condições", imageUrl: "/products/skmei-2120-dourado.webp", featured: false, active: true },
+  { id: "skmei-2120-prata", slug: "skmei-anadigi-2120-prata", name: "Relógio Unissex SKMEI AnaDigi 2120 — Prata", eyebrow: "Minimalismo urbano", description: "Acabamento prateado, mostrador preto limpo e display digital discreto para uma leitura versátil no dia a dia.", priceCents: 19990, compareAtPriceCents: null, stock: 1, category: "Casual", caseColor: "Prata e preto", strap: "Aço", movement: "Analógico e digital", waterResistance: "Consulte condições", imageUrl: "/products/skmei-2120-prata.webp", featured: false, active: true },
+  { id: "skmei-0992", slug: "skmei-analogico-0992-prata-preto", name: "Relógio Masculino SKMEI Analógico 0992 — Prata e Preto", eyebrow: "Robusto essencial", description: "Modelo analógico com caixa robusta, bezel preto aparafusado, pulseira bicolor em aço e calendário lateral.", priceCents: 17990, compareAtPriceCents: null, stock: 1, category: "Esportivo", caseColor: "Prata e preto", strap: "Aço bicolor", movement: "Quartzo analógico", waterResistance: "Consulte condições", imageUrl: "/products/skmei-0992.webp", featured: false, active: true },
+  { id: "skmei-1649", slug: "skmei-anadigi-1649-prata-preto", name: "Relógio Masculino SKMEI AnaDigi 1649 — Prata e Preto", eyebrow: "Impacto esportivo", description: "Caixa angular de grande presença, bezel preto numerado, pulseira em aço e múltiplas leituras digitais integradas.", priceCents: 25990, compareAtPriceCents: null, stock: 1, category: "Esportivo", caseColor: "Prata e preto", strap: "Aço", movement: "Analógico e digital", waterResistance: "3 ATM", imageUrl: "/products/skmei-1649.webp", featured: false, active: true },
+  { id: "skmei-1335-dourado", slug: "skmei-digital-1335-dourado", name: "Relógio Masculino SKMEI Digital 1335 — Dourado", eyebrow: "Digital retrô", description: "Caixa digital retangular com acabamento dourado escovado, pulseira em aço e tela multifunções de leitura ampla.", priceCents: 22990, compareAtPriceCents: null, stock: 1, category: "Digital", caseColor: "Dourado e preto", strap: "Aço", movement: "Digital", waterResistance: "5 ATM", imageUrl: "/products/skmei-1335-dourado.webp", featured: false, active: true },
+  { id: "skmei-2049", slug: "skmei-anadigi-2049-prata", name: "Relógio Masculino SKMEI AnaDigi 2049 — Prata", eyebrow: "Tecnologia em aço", description: "Mostrador preto com duas janelas digitais, leitura analógica sobreposta e pulseira prateada de três colunas.", priceCents: 23990, compareAtPriceCents: null, stock: 1, category: "Esportivo", caseColor: "Prata e preto", strap: "Aço", movement: "Analógico e digital", waterResistance: "3 ATM", imageUrl: "/products/skmei-2049.webp", featured: false, active: true },
+  { id: "weide-wh5205", slug: "weide-anadigi-wh5205-prata-preto", name: "Relógio Masculino Weide AnaDigi WH-5205 — Prata e Preto", eyebrow: "Rugged premium", description: "Caixa robusta em prata e preto, mostrador ana-digital multifunções, detalhes vermelhos e pulseira esportiva em borracha.", priceCents: 28990, compareAtPriceCents: null, stock: 1, category: "Esportivo", caseColor: "Prata e preto", strap: "Borracha preta", movement: "Analógico e digital", waterResistance: "Consulte condições", imageUrl: "/products/weide-wh5205.webp", featured: false, active: true },
 ];
 
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
@@ -36,31 +46,52 @@ export function Storefront() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todos");
   const [cart, setCart] = useState<Record<string, number>>({});
+  const [cartHydrated, setCartHydrated] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [selected, setSelected] = useState<Product | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [toast, setToast] = useState("");
   const heroRef = useRef<HTMLElement>(null);
   const heroVideoRef = useRef<HTMLVideoElement>(null);
+  const toastTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
+    const storedCart = readStoredCart(window.localStorage.getItem("aurum-cart"));
     queueMicrotask(() => {
-      const saved = window.localStorage.getItem("aurum-cart");
-      if (!saved) return;
-      try { setCart(JSON.parse(saved)); } catch { /* carrinho inválido é ignorado */ }
+      setCart(storedCart);
+      setCartHydrated(true);
     });
     fetch("/api/products")
       .then((response) => response.ok ? response.json() : Promise.reject())
-      .then((data) => data.products?.length && setProducts(data.products))
-      .catch(() => undefined)
+      .then((data) => {
+        const nextProducts = Array.isArray(data.products) ? data.products : [];
+        setProducts(nextProducts);
+        setCart((current) => reconcileCart(current, nextProducts));
+      })
+      .catch(() => setCart((current) => reconcileCart(current, fallbackProducts)))
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { window.localStorage.setItem("aurum-cart", JSON.stringify(cart)); }, [cart]);
+  useEffect(() => {
+    if (cartHydrated) window.localStorage.setItem("aurum-cart", JSON.stringify(cart));
+  }, [cart, cartHydrated]);
+  useEffect(() => () => {
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+  }, []);
   useEffect(() => {
     document.body.classList.toggle("no-scroll", cartOpen || Boolean(selected) || menuOpen);
     return () => document.body.classList.remove("no-scroll");
   }, [cartOpen, selected, menuOpen]);
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setCartOpen(false);
+      setSelected(null);
+      setMenuOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, []);
 
   useEffect(() => {
     const hero = heroRef.current;
@@ -121,21 +152,18 @@ export function Storefront() {
   const count = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const freeShippingRemaining = Math.max(0, 40000 - subtotal);
 
-  const heroProduct = useMemo(() => products.find((product) => product.slug === "horizon-steel") ?? products.find((product) => product.featured) ?? products[0], [products]);
+  const heroProduct = useMemo(() => products.find((product) => product.featured) ?? products[0], [products]);
 
   function addToCart(product: Product) {
-    setCart((current) => ({ ...current, [product.id]: Math.min(product.stock, (current[product.id] ?? 0) + 1) }));
+    if (product.stock <= 0) return;
+    setCart((current) => updateCartQuantity(current, product, 1));
     setToast(`${product.name} adicionado ao carrinho`);
-    window.setTimeout(() => setToast(""), 2200);
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(""), 2200);
   }
 
   function changeQuantity(product: Product, delta: number) {
-    setCart((current) => {
-      const next = Math.max(0, Math.min(product.stock, (current[product.id] ?? 0) + delta));
-      const updated = { ...current };
-      if (next === 0) delete updated[product.id]; else updated[product.id] = next;
-      return updated;
-    });
+    setCart((current) => updateCartQuantity(current, product, delta));
   }
 
   function checkout() {
@@ -156,7 +184,7 @@ export function Storefront() {
           <a href="#beneficios" onClick={() => setMenuOpen(false)}>Garantias</a>
         </nav>
         <div className="header-actions">
-          <button className="icon-button menu-button" aria-label="Abrir menu" onClick={() => setMenuOpen(!menuOpen)}><span /><span /></button>
+          <button className="icon-button menu-button" aria-label={menuOpen ? "Fechar menu" : "Abrir menu"} aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}><span /><span /></button>
           <button className="cart-button" onClick={() => setCartOpen(true)} aria-label={`Abrir carrinho com ${count} itens`}>Carrinho <b>{String(count).padStart(2, "0")}</b></button>
         </div>
       </header>
@@ -219,9 +247,9 @@ export function Storefront() {
       <footer><a className="brand" href="#top"><span>A</span>AURUM</a><p>Relógios masculinos com presença.</p><div><a href="#colecao">Coleção</a><a href="#beneficios">Garantias</a><a href="https://wa.me/5528999187401" target="_blank" rel="noreferrer">WhatsApp</a><a href="/admin">Admin</a></div><small>© 2026 AURUM. Todos os direitos reservados.</small></footer>
 
       <div className={cartOpen ? "overlay is-open" : "overlay"} onClick={() => setCartOpen(false)} />
-      <aside className={cartOpen ? "cart-drawer is-open" : "cart-drawer"} aria-hidden={!cartOpen}>
+      <aside className={cartOpen ? "cart-drawer is-open" : "cart-drawer"} aria-hidden={!cartOpen} inert={!cartOpen}>
         <div className="drawer-header"><div><span>Seu carrinho</span><h2>{count} {count === 1 ? "item" : "itens"}</h2></div><button className="close-button" onClick={() => setCartOpen(false)} aria-label="Fechar carrinho">×</button></div>
-        {cartItems.length ? <><div className="cart-items">{cartItems.map(({ product, quantity }) => <article className="cart-item" key={product.id}><img src={product.imageUrl} alt="" loading="lazy" decoding="async" /><div><span>{product.category}</span><h3>{product.name}</h3><strong>{money(product.priceCents)}</strong><div className="quantity"><button onClick={() => changeQuantity(product, -1)} aria-label={`Diminuir ${product.name}`}>−</button><b>{quantity}</b><button onClick={() => changeQuantity(product, 1)} aria-label={`Aumentar ${product.name}`}>+</button></div></div></article>)}</div><div className="cart-summary">{freeShippingRemaining > 0 ? <p>Faltam <strong>{money(freeShippingRemaining)}</strong> para o frete grátis.</p> : <p className="success">✓ Você ganhou frete grátis.</p>}<div className="progress"><span style={{ width: `${Math.min(100, subtotal / 400)}%` }} /></div><dl><dt>Subtotal</dt><dd>{money(subtotal)}</dd><dt>Entrega</dt><dd>{subtotal >= 40000 ? "Grátis" : "A calcular"}</dd></dl><button className="button primary full" onClick={checkout}>Finalizar no WhatsApp <span>↗</span></button><small>Pagamento e endereço serão combinados no atendimento.</small></div></> : <div className="cart-empty"><span>00</span><h3>Seu carrinho está vazio.</h3><p>Descubra a coleção e escolha o relógio que combina com o seu momento.</p><button className="button primary" onClick={() => setCartOpen(false)}>Explorar coleção</button></div>}
+        {cartItems.length ? <><div className="cart-items">{cartItems.map(({ product, quantity }) => <article className="cart-item" key={product.id}><img src={product.imageUrl} alt="" loading="lazy" decoding="async" /><div><span>{product.category}</span><h3>{product.name}</h3><strong>{money(product.priceCents)}</strong><div className="quantity"><button onClick={() => changeQuantity(product, -1)} aria-label={`Diminuir ${product.name}`}>−</button><b>{quantity}</b><button disabled={quantity >= product.stock} onClick={() => changeQuantity(product, 1)} aria-label={`Aumentar ${product.name}`}>+</button></div></div></article>)}</div><div className="cart-summary">{freeShippingRemaining > 0 ? <p>Faltam <strong>{money(freeShippingRemaining)}</strong> para o frete grátis.</p> : <p className="success">✓ Você ganhou frete grátis.</p>}<div className="progress"><span style={{ width: `${Math.min(100, subtotal / 400)}%` }} /></div><dl><dt>Subtotal</dt><dd>{money(subtotal)}</dd><dt>Entrega</dt><dd>{subtotal >= 40000 ? "Grátis" : "A calcular"}</dd></dl><button className="button primary full" onClick={checkout}>Finalizar no WhatsApp <span>↗</span></button><small>Pagamento e endereço serão combinados no atendimento.</small></div></> : <div className="cart-empty"><span>00</span><h3>Seu carrinho está vazio.</h3><p>Descubra a coleção e escolha o relógio que combina com o seu momento.</p><button className="button primary" onClick={() => { setCartOpen(false); document.getElementById("colecao")?.scrollIntoView({ behavior: "smooth" }); }}>Explorar coleção</button></div>}
       </aside>
 
       {selected && <div className="modal-wrap" role="dialog" aria-modal="true" aria-label={`Detalhes do ${selected.name}`}><button className="modal-backdrop" onClick={() => setSelected(null)} aria-label="Fechar detalhes" /><div className="product-modal"><button className="close-button" onClick={() => setSelected(null)} aria-label="Fechar detalhes">×</button><div className="modal-image"><img src={selected.imageUrl} alt={selected.name} /></div><div className="modal-content"><span className="section-kicker">{selected.eyebrow}</span><h2>{selected.name}</h2><p>{selected.description}</p><strong className="modal-price">{money(selected.priceCents)}</strong><small>ou 6x de {money(Math.round(selected.priceCents / 6))}</small><dl><div><dt>Caixa</dt><dd>{selected.caseColor}</dd></div><div><dt>Pulseira</dt><dd>{selected.strap}</dd></div><div><dt>Movimento</dt><dd>{selected.movement}</dd></div><div><dt>Resistência</dt><dd>{selected.waterResistance}</dd></div></dl><button className="button primary full" disabled={selected.stock === 0} onClick={() => { addToCart(selected); setSelected(null); setCartOpen(true); }}>{selected.stock ? "Adicionar ao carrinho" : "Indisponível"}<span>+</span></button><p className="stock-note">{selected.stock > 0 ? `Envio imediato · ${selected.stock} unidades disponíveis` : "Produto temporariamente indisponível"}</p></div></div></div>}
