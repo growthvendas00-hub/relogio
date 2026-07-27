@@ -1,7 +1,7 @@
 import { getAdminUser } from "@/lib/admin-auth";
 import { defaultStoreSettings, validWhatsapp, type OrderMode, type StoreSettings } from "@/lib/commerce";
 import { commerceStorageConfigured, getStoreSettings, saveStoreSettings } from "@/lib/commerce-store";
-import { isAllowedMutationOrigin } from "@/lib/request-security";
+import { isAllowedMutationOrigin, readJsonBody, requestErrorStatus } from "@/lib/request-security";
 
 export const dynamic = "force-dynamic";
 
@@ -10,13 +10,16 @@ export async function GET(request: Request) {
     const settings = await getStoreSettings();
     const admin = new URL(request.url).searchParams.get("admin") === "1";
     if (admin && !(await getAdminUser())) return Response.json({ error: "Acesso não autorizado." }, { status: 403 });
-    if (admin) return Response.json({ settings, storageConfigured: commerceStorageConfigured() });
+    if (admin) return Response.json(
+      { settings, storageConfigured: commerceStorageConfigured() },
+      { headers: { "cache-control": "private, no-store" } },
+    );
     return Response.json({ settings: {
       brandName: settings.brandName,
       instagramUrl: settings.instagramUrl,
       orderMode: settings.orderMode,
       storeWhatsapp: settings.storeWhatsapp,
-    } });
+    } }, { headers: { "cache-control": "public, s-maxage=30, stale-while-revalidate=300" } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Não foi possível carregar as configurações." }, { status: 500 });
   }
@@ -26,7 +29,7 @@ export async function PATCH(request: Request) {
   if (!isAllowedMutationOrigin(request)) return Response.json({ error: "Origem não autorizada." }, { status: 403 });
   if (!(await getAdminUser())) return Response.json({ error: "Acesso não autorizado." }, { status: 403 });
   try {
-    const payload = await request.json() as Partial<StoreSettings>;
+    const payload = await readJsonBody<Partial<StoreSettings>>(request, 16_384);
     const current = await getStoreSettings();
     const settings: StoreSettings = {
       brandName: String(payload.brandName ?? current.brandName).trim(),
@@ -47,7 +50,7 @@ export async function PATCH(request: Request) {
     }
     return Response.json({ settings: await saveStoreSettings(settings) });
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Não foi possível salvar as configurações." }, { status: 400 });
+    return Response.json({ error: error instanceof Error ? error.message : "Não foi possível salvar as configurações." }, { status: requestErrorStatus(error, 400) });
   }
 }
 

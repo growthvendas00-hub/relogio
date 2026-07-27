@@ -2,7 +2,7 @@ import { del } from "@vercel/blob";
 import { getAdminUser } from "@/lib/admin-auth";
 import { deleteProduct, updateProduct } from "@/lib/product-store";
 import { findProduct } from "@/lib/product-store";
-import { isAllowedMutationOrigin, isSafeProductImage } from "@/lib/request-security";
+import { isAllowedMutationOrigin, isSafeProductImage, readJsonBody, requestErrorStatus } from "@/lib/request-security";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!(await getAdminUser())) return Response.json({ error: "Acesso não autorizado." }, { status: 403 });
   try {
     const { id } = await context.params;
-    const payload = clean((await request.json()) as Record<string, unknown>);
+    const payload = clean(await readJsonBody<Record<string, unknown>>(request, 16_384));
+    if (!Object.keys(payload).length) return Response.json({ error: "Nenhuma alteração válida foi informada." }, { status: 400 });
     if (payload.name !== undefined && !String(payload.name).trim()) {
       return Response.json({ error: "O nome é obrigatório." }, { status: 400 });
     }
@@ -37,6 +38,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
     if (payload.featured !== undefined && typeof payload.featured !== "boolean") {
       return Response.json({ error: "Informe um destaque válido." }, { status: 400 });
+    }
+    if (payload.slug !== undefined && (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(payload.slug)) || String(payload.slug).length > 140)) {
+      return Response.json({ error: "Identificador do produto inválido." }, { status: 400 });
     }
     const textFields = ["name", "eyebrow", "description", "category", "caseColor", "strap", "movement", "waterResistance"];
     if (textFields.some((key) => payload[key] !== undefined && String(payload[key]).trim().length > (key === "description" ? 1200 : 120))) {
@@ -58,7 +62,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
     return product ? Response.json({ product }) : Response.json({ error: "Produto não encontrado." }, { status: 404 });
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Não foi possível editar o produto." }, { status: 400 });
+    return Response.json({ error: error instanceof Error ? error.message : "Não foi possível editar o produto." }, { status: requestErrorStatus(error, 400) });
   }
 }
 

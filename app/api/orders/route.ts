@@ -3,7 +3,7 @@ import { normalizeInstagram, normalizeWhatsapp, simplifyProductName, validWhatsa
 import { createOrder, getStoreSettings, listOrders } from "@/lib/commerce-store";
 import { consumeOrderAttempt } from "@/lib/order-rate-limit";
 import { listProducts } from "@/lib/product-store";
-import { isAllowedMutationOrigin } from "@/lib/request-security";
+import { isAllowedMutationOrigin, readJsonBody, requestErrorStatus } from "@/lib/request-security";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +11,10 @@ function text(value: unknown, max: number) {
   const result = String(value ?? "").trim();
   if (result.length > max) throw new Error("Um dos campos excede o limite permitido.");
   return result;
+}
+
+function singleLine(value: unknown, max: number) {
+  return text(value, max).replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function orderCode() {
@@ -30,7 +34,7 @@ export async function GET() {
 export async function POST(request: Request) {
   if (!isAllowedMutationOrigin(request)) return Response.json({ error: "Origem não autorizada." }, { status: 403 });
   try {
-    const payload = await request.json() as Record<string, unknown>;
+    const payload = await readJsonBody<Record<string, unknown>>(request, 65_536);
     const admin = await getAdminUser();
     const manual = payload.manual === true;
     if (manual && !admin) return Response.json({ error: "Acesso não autorizado." }, { status: 403 });
@@ -45,10 +49,11 @@ export async function POST(request: Request) {
       if (payload.consent !== true) return Response.json({ error: "Confirme que a Almare pode entrar em contato." }, { status: 400 });
     }
 
-    const customerName = text(payload.customerName, 100);
+    const customerName = singleLine(payload.customerName, 100);
     const whatsapp = normalizeWhatsapp(text(payload.whatsapp, 30));
     const instagram = normalizeInstagram(text(payload.instagram, 80));
     if (!customerName) throw new Error("Informe o nome do cliente.");
+    if (!/^[\p{L}\p{M} .'-]{2,100}$/u.test(customerName)) throw new Error("Informe um nome válido, sem códigos ou símbolos especiais.");
     if (!validWhatsapp(whatsapp)) throw new Error("Informe um WhatsApp válido com DDD.");
     if (instagram && !/^[a-zA-Z0-9._]{1,30}$/.test(instagram)) throw new Error("Informe um @ do Instagram válido.");
 
@@ -57,9 +62,10 @@ export async function POST(request: Request) {
     let source: Order["source"];
     let status: Order["status"] = "new";
     let notes = text(payload.notes, 1000);
+    let checkoutSettings: Awaited<ReturnType<typeof getStoreSettings>> | null = null;
 
     if (manual) {
-      const description = text(payload.description, 180);
+      const description = singleLine(payload.description, 180);
       const totalCents = payload.totalCents;
       if (!description) throw new Error("Descreva a venda manual.");
       if (typeof totalCents !== "number" || !Number.isInteger(totalCents) || totalCents <= 0 || totalCents > 100_000_000) {
@@ -72,11 +78,18 @@ export async function POST(request: Request) {
     } else {
       const rawItems = Array.isArray(payload.items) ? payload.items : [];
       if (!rawItems.length || rawItems.length > 30) throw new Error("O pedido precisa ter pelo menos um produto.");
-      const products = await listProducts(false);
-      items = rawItems.map((raw) => {
+      const quantities = new Map<string, number>();
+      for (const raw of rawItems) {
+        if (!raw || typeof raw !== "object") throw new Error("Um item do carrinho é inválido.");
         const input = raw as { productId?: unknown; quantity?: unknown };
-        const product = products.find((item) => item.id === input.productId);
+        if (typeof input.productId !== "string" || input.productId.length > 140) throw new Error("Um item do carrinho é inválido.");
         const quantity = Number(input.quantity);
+        if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 100) throw new Error("A quantidade de um produto é inválida.");
+        quantities.set(input.productId, (quantities.get(input.productId) ?? 0) + quantity);
+      }
+      const products = await listProducts(false);
+      items = [...quantities.entries()].map(([productId, quantity]) => {
+        const product = products.find((item) => item.id === productId);
         if (!product || !Number.isInteger(quantity) || quantity <= 0 || quantity > product.stock) {
           throw new Error("Um produto do carrinho está indisponível ou sem estoque suficiente.");
         }
@@ -89,8 +102,8 @@ export async function POST(request: Request) {
         };
       });
       subtotalCents = items.reduce((sum, item) => sum + item.unitPriceCents * item.quantity, 0);
-      const settings = await getStoreSettings();
-      source = settings.orderMode === "customer_whatsapp" ? "site_whatsapp" : "site_followup";
+      checkoutSettings = await getStoreSettings();
+      source = checkoutSettings.orderMode === "customer_whatsapp" ? "site_whatsapp" : "site_followup";
       notes = "";
     }
 
@@ -111,9 +124,9 @@ export async function POST(request: Request) {
       updatedAt: now,
     };
     await createOrder(order);
-    const settings = await getStoreSettings();
+    const settings = checkoutSettings ?? await getStoreSettings();
     return Response.json({ order, orderMode: settings.orderMode, storeWhatsapp: settings.storeWhatsapp, customerWhatsappTemplate: settings.customerWhatsappTemplate }, { status: 201 });
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Não foi possível registrar o pedido." }, { status: 400 });
+    return Response.json({ error: error instanceof Error ? error.message : "Não foi possível registrar o pedido." }, { status: requestErrorStatus(error, 400) });
   }
 }

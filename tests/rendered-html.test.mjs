@@ -125,6 +125,9 @@ test("commercial management validates prices server-side and protects customer d
   assert.match(ordersRoute, /await listProducts\(false\)/);
   assert.match(ordersRoute, /unitPriceCents: product\.priceCents/);
   assert.match(ordersRoute, /consumeOrderAttempt/);
+  assert.match(ordersRoute, /const quantities = new Map/);
+  assert.match(ordersRoute, /quantities\.set/);
+  assert.match(ordersRoute, /readJsonBody/);
   assert.match(orderRoute, /await getAdminUser\(\)/);
   assert.match(settingsRoute, /await getAdminUser\(\)/);
   assert.match(store, /AES-GCM/);

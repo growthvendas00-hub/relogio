@@ -9,7 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --test tests/rendered-html.test.mjs",
+    "test": "node --test tests/rendered-html.test.mjs tests/security.test.mjs",
+    "test:runtime": "node tests/runtime-security-check.mjs",
     "lint": "eslint . --ignore-pattern .next --ignore-pattern dist --ignore-pattern .wrangler"
   },
   "dependencies": {

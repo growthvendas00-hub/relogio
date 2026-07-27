@@ -157,7 +157,7 @@ async function readCatalog() {
   )[0];
   if (!latest) return demoProducts;
 
-  const response = await fetch(latest.url, { cache: "no-store" });
+  const response = await fetch(latest.url, { cache: "no-store", signal: AbortSignal.timeout(8_000) });
   if (!response.ok) throw new Error("Não foi possível ler o catálogo da Vercel Blob.");
   return validateCatalog(await response.json());
 }

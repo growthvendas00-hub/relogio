@@ -1,6 +1,6 @@
 import { catalogStorageConfigured, createProduct, listProducts } from "@/lib/product-store";
 import { getAdminUser } from "@/lib/admin-auth";
-import { isAllowedMutationOrigin, isSafeProductImage } from "@/lib/request-security";
+import { isAllowedMutationOrigin, isSafeProductImage, readJsonBody, requestErrorStatus } from "@/lib/request-security";
 
 export const dynamic = "force-dynamic";
 
@@ -84,7 +84,7 @@ export async function GET(request: Request) {
     return Response.json({
       products: await listProducts(includeInactive),
       ...(includeInactive ? { storageConfigured: catalogStorageConfigured() } : {}),
-    });
+    }, { headers: { "cache-control": includeInactive ? "private, no-store" : "public, s-maxage=30, stale-while-revalidate=300" } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Não foi possível carregar os produtos." }, { status: 500 });
   }
@@ -95,12 +95,12 @@ export async function POST(request: Request) {
   if (!(await getAdminUser())) return Response.json({ error: "Acesso não autorizado." }, { status: 403 });
 
   try {
-    const input = parseProduct((await request.json()) as Record<string, unknown>);
+    const input = parseProduct(await readJsonBody<Record<string, unknown>>(request, 16_384));
     const product = await createProduct({ id: crypto.randomUUID(), ...input });
     return Response.json({ product }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Não foi possível criar o produto.";
-    const status = message.includes("UNIQUE") ? 409 : 400;
+    const status = message.includes("UNIQUE") ? 409 : requestErrorStatus(error, 400);
     return Response.json({ error: status === 409 ? "Já existe um produto com esse nome." : message }, { status });
   }
 }

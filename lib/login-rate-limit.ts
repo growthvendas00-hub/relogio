@@ -1,4 +1,5 @@
 import "server-only";
+import { clientAddress } from "@/lib/request-security";
 
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
@@ -12,11 +13,6 @@ const globalRateLimit = globalThis as typeof globalThis & {
 
 const attempts = globalRateLimit.aurumLoginAttempts ?? new Map<string, Attempt>();
 globalRateLimit.aurumLoginAttempts = attempts;
-
-function clientKey(request: Request) {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return (forwarded || request.headers.get("x-real-ip") || "unknown").slice(0, 120);
-}
 
 function prune(now: number) {
   for (const [key, attempt] of attempts) {
@@ -33,7 +29,7 @@ function prune(now: number) {
 export function consumeLoginAttempt(request: Request) {
   const now = Date.now();
   prune(now);
-  const key = clientKey(request);
+  const key = clientAddress(request);
   const current = attempts.get(key);
   if (current && current.resetAt > now && current.count >= MAX_ATTEMPTS) {
     return { allowed: false, retryAfterSeconds: Math.max(1, Math.ceil((current.resetAt - now) / 1000)), key };

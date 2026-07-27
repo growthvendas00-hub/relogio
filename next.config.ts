@@ -16,12 +16,14 @@ const securityHeaders = [
     "upgrade-insecure-requests",
   ].join("; ") },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
   { key: "Origin-Agent-Cluster", value: "?1" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-DNS-Prefetch-Control", value: "off" },
   { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
 ];
 
 const nextConfig: NextConfig = {
@@ -29,7 +31,9 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
-      { source: "/api/:path*", headers: [{ key: "Cache-Control", value: "no-store, max-age=0" }] },
+      { source: "/api/admin/:path*", headers: [{ key: "Cache-Control", value: "private, no-store" }] },
+      { source: "/api/orders/:path*", headers: [{ key: "Cache-Control", value: "private, no-store" }] },
+      { source: "/api/uploads/:path*", headers: [{ key: "Cache-Control", value: "private, no-store" }] },
       { source: "/admin/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }] },
     ];
   },

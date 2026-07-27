@@ -1,9 +1,10 @@
 import "server-only";
-import { list, put } from "@vercel/blob";
+import { del, list, put } from "@vercel/blob";
 import { defaultStoreSettings, type Order, type OrderStatus, type StoreSettings } from "@/lib/commerce";
 
 const ORDER_PREFIX = "almare/private/orders/";
 const SETTINGS_PREFIX = "almare/settings/";
+const MAX_SETTINGS_VERSIONS = 5;
 const useMemory = process.env.AURUM_TEST_STORAGE === "memory" && !process.env.VERCEL;
 const memory = globalThis as typeof globalThis & { almareOrders?: Order[]; almareSettings?: StoreSettings };
 
@@ -84,7 +85,7 @@ export async function listOrders() {
     }
   }
   const orders = await Promise.all([...latest.values()].map(async (blob) => {
-    const response = await fetch(blob.url, { cache: "no-store" });
+    const response = await fetch(blob.url, { cache: "no-store", signal: AbortSignal.timeout(8_000) });
     if (!response.ok) throw new Error("Não foi possível ler um pedido armazenado.");
     return decryptOrder(await response.json() as EncryptedRecord);
   }));
@@ -108,7 +109,7 @@ export async function getStoreSettings(): Promise<StoreSettings> {
   const blobs = await listAll(SETTINGS_PREFIX);
   const latest = blobs.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime() || b.pathname.localeCompare(a.pathname))[0];
   if (!latest) return defaultStoreSettings;
-  const response = await fetch(latest.url, { cache: "no-store" });
+  const response = await fetch(latest.url, { cache: "no-store", signal: AbortSignal.timeout(8_000) });
   if (!response.ok) throw new Error("Não foi possível carregar as configurações da loja.");
   return { ...defaultStoreSettings, ...await response.json() as Partial<StoreSettings> };
 }
@@ -124,6 +125,12 @@ export async function saveStoreSettings(settings: StoreSettings) {
     contentType: "application/json; charset=utf-8",
     cacheControlMaxAge: 60,
   });
+  const versions = await listAll(SETTINGS_PREFIX);
+  const obsolete = versions
+    .sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime() || b.pathname.localeCompare(a.pathname))
+    .slice(MAX_SETTINGS_VERSIONS)
+    .map((blob) => blob.url);
+  if (obsolete.length) await del(obsolete).catch(() => undefined);
   return settings;
 }
 

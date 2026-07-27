@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminSessionCookie, createAdminSession, verifyAdminPassword } from "@/lib/admin-auth";
 import { clearLoginAttempts, consumeLoginAttempt } from "@/lib/login-rate-limit";
-import { isAllowedMutationOrigin } from "@/lib/request-security";
+import { isAllowedMutationOrigin, readJsonBody, requestErrorStatus } from "@/lib/request-security";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     );
   }
   try {
-    const { password } = (await request.json()) as { password?: unknown };
+    const { password } = await readJsonBody<{ password?: unknown }>(request, 1_024);
     if (typeof password !== "string" || !(await verifyAdminPassword(password))) {
       await new Promise((resolve) => setTimeout(resolve, 700));
       return NextResponse.json({ error: "Senha inválida." }, { status: 401 });
@@ -42,7 +42,10 @@ export async function POST(request: Request) {
     });
     return response;
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Não foi possível entrar." }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Não foi possível entrar." },
+      { status: requestErrorStatus(error, 500) },
+    );
   }
 }
 
