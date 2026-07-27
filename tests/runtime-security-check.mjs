@@ -48,7 +48,7 @@ assert.equal((await call("/api/orders", jsonOptions({ ...invalidBase, customerNa
 assert.equal((await call("/api/orders", jsonOptions({ ...invalidBase, whatsapp: "123", items: [{ productId: product.id, quantity: 1 }] }, { "x-vercel-forwarded-for": "203.0.113.4" }))).response.status, 400);
 assert.equal((await call("/api/orders", jsonOptions({ ...invalidBase, consent: false, items: [{ productId: product.id, quantity: 1 }] }, { "x-vercel-forwarded-for": "203.0.113.5" }))).response.status, 400);
 assert.equal((await call("/api/orders", jsonOptions({ ...invalidBase, items: [{ productId: "does-not-exist", quantity: 1 }] }, { "x-vercel-forwarded-for": "203.0.113.6" }))).response.status, 400);
-assert.equal((await call("/api/orders", jsonOptions({ ...invalidBase, items: [{ productId: product.id, quantity: 1 }, { productId: product.id, quantity: 1 }] }, { "x-vercel-forwarded-for": "203.0.113.7" }))).response.status, 400);
+assert.equal((await call("/api/orders", jsonOptions({ ...invalidBase, items: [{ productId: product.id, quantity: 60 }, { productId: product.id, quantity: 60 }] }, { "x-vercel-forwarded-for": "203.0.113.7" }))).response.status, 400);
 assert.equal((await call("/api/orders", jsonOptions({ ...invalidBase, address: undefined, items: [{ productId: product.id, quantity: 1 }] }, { "x-vercel-forwarded-for": "203.0.113.10" }))).response.status, 400);
 assert.equal((await call("/api/orders", jsonOptions({ ...invalidBase, address: { ...validAddress, postalCode: "00000-000" }, items: [{ productId: product.id, quantity: 1 }] }, { "x-vercel-forwarded-for": "203.0.113.11" }))).response.status, 400);
 assert.equal((await call("/api/orders", jsonOptions({ ...invalidBase, address: { ...validAddress, state: "XX" }, items: [{ productId: product.id, quantity: 1 }] }, { "x-vercel-forwarded-for": "203.0.113.12" }))).response.status, 400);
@@ -85,6 +85,11 @@ assert.equal((await call(`/api/products/${editable.id}`, { method: "PATCH", head
 const edited = await call("/api/products?all=1", { headers: adminHeaders });
 assert.equal(edited.body.products.find((item) => item.id === editable.id).priceCents, editable.priceCents + 100);
 assert.equal((await call(`/api/products/${editable.id}`, { method: "PATCH", headers: patchHeaders, body: JSON.stringify({ priceCents: editable.priceCents }) })).response.status, 200);
+assert.equal((await call(`/api/products/${editable.id}`, { method: "PATCH", headers: patchHeaders, body: JSON.stringify({ stock: 0 }) })).response.status, 200);
+const soldOutCatalog = await call("/api/products");
+assert.equal(soldOutCatalog.body.products.find((item) => item.id === editable.id)?.stock, 0);
+assert.equal((await call("/api/orders", jsonOptions({ ...invalidBase, items: [{ productId: editable.id, quantity: 1 }] }, { "x-vercel-forwarded-for": "203.0.113.13" }))).response.status, 400);
+assert.equal((await call(`/api/products/${editable.id}`, { method: "PATCH", headers: patchHeaders, body: JSON.stringify({ stock: editable.stock }) })).response.status, 200);
 
 const adminSettings = await call("/api/settings?admin=1", { headers: adminHeaders });
 assert.equal(adminSettings.response.status, 200);
@@ -126,7 +131,7 @@ assert.equal(orders.response.status, 200);
 assert.ok(orders.body.orders.length >= 27);
 
 console.log(JSON.stringify({
-  checked: "storefront, delivery address, auth, CSRF, XSS input, size limits, stock aggregation, price integrity, IDOR, admin mutations, rate limits, concurrency",
+  checked: "storefront, sold-out state, delivery address, auth, CSRF, XSS input, size limits, stock aggregation, price integrity, IDOR, admin mutations, rate limits, concurrency",
   concurrentOrders: 25,
   concurrentOrderDurationMs,
   publicReads: 100,

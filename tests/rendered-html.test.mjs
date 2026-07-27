@@ -14,6 +14,10 @@ test("storefront includes the MVP sales flow", async () => {
   assert.match(brand, /almare-logo\.webp/);
   assert.match(commerce, /5528999187401/);
   assert.match(commerce, /instagram\.com\/almare\.old/);
+  assert.match(storefront, /sold-out-badge/);
+  assert.match(storefront, /Produto esgotado/);
+  assert.match(styles, /product-card\.is-sold-out/);
+  assert.match(styles, /add-button:not|\.add-button \{/);
   assert.match(storefront, /40000/);
   assert.match(storefront, /SKMEI AnaDigi 1146/);
   assert.match(storefront, /Tuguir AnaDigi TG1156/);
@@ -75,7 +79,8 @@ test("admin uses protected sessions and confirmed Vercel Blob persistence", asyn
 test("cart survives reloads and respects the current inventory", () => {
   assert.deepEqual(readStoredCart(JSON.stringify({ atlas: 2, invalid: -1, decimal: 1.5 })), { atlas: 2 });
   assert.deepEqual(readStoredCart("invalid-json"), {});
-  assert.deepEqual(reconcileCart({ atlas: 5, removed: 1 }, [{ id: "atlas", stock: 3 }]), { atlas: 3 });
+  assert.deepEqual(reconcileCart({ atlas: 5, removed: 1 }, [{ id: "atlas", stock: 1 }]), { atlas: 5 });
+  assert.deepEqual(reconcileCart({ atlas: 5 }, [{ id: "atlas", stock: 0 }]), {});
   assert.deepEqual(updateCartQuantity({ atlas: 1 }, { id: "atlas", stock: 2 }, 1), { atlas: 2 });
   assert.deepEqual(updateCartQuantity({ atlas: 1 }, { id: "atlas", stock: 2 }, -1), {});
 });
@@ -119,9 +124,9 @@ test("orders keep simplified product names and editable message templates", () =
 });
 
 test("commercial management validates prices server-side and protects customer data", async () => {
-  const [ordersRoute, orderRoute, settingsRoute, store, dashboard] = await Promise.all([
+  const [ordersRoute, orderRoute, settingsRoute, store, dashboard, catalogDashboard] = await Promise.all([
     read("app/api/orders/route.ts"), read("app/api/orders/[id]/route.ts"), read("app/api/settings/route.ts"),
-    read("lib/commerce-store.ts"), read("app/admin/commerce-dashboard.tsx"),
+    read("lib/commerce-store.ts"), read("app/admin/commerce-dashboard.tsx"), read("app/admin/admin-dashboard.tsx"),
   ]);
   assert.match(ordersRoute, /await listProducts\(false\)/);
   assert.match(ordersRoute, /unitPriceCents: product\.priceCents/);
@@ -138,4 +143,6 @@ test("commercial management validates prices server-side and protects customer d
   assert.match(dashboard, /Registrar venda manual/);
   assert.match(dashboard, /Chamar no WhatsApp/);
   assert.match(dashboard, /Endereço de entrega/);
+  assert.match(catalogDashboard, /Marcar esgotado/);
+  assert.match(catalogDashboard, /toggleAvailability/);
 });

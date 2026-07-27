@@ -176,12 +176,34 @@ export function Storefront() {
 
   const heroProduct = useMemo(() => products.find((product) => product.featured) ?? products[0], [products]);
 
-  function addToCart(product: Product) {
-    if (product.stock <= 0) return;
-    setCart((current) => updateCartQuantity(current, product, 1));
-    setToast(`${product.name} adicionado ao carrinho`);
+  async function addToCart(product: Product) {
+    let currentProduct = product;
+    try {
+      const response = await fetch("/api/products?fresh=1", { cache: "no-store" });
+      if (response.ok) {
+        const data = await response.json();
+        const latestProducts = Array.isArray(data.products) ? data.products as Product[] : [];
+        const latest = latestProducts.find((item) => item.id === product.id);
+        setProducts(latestProducts);
+        setCart((current) => reconcileCart(current, latestProducts));
+        if (!latest || latest.stock <= 0) {
+          setSelected((selectedProduct) => selectedProduct?.id === product.id ? latest ?? null : selectedProduct);
+          setToast(`${product.name} está esgotado no momento`);
+          if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+          toastTimerRef.current = window.setTimeout(() => setToast(""), 2600);
+          return false;
+        }
+        currentProduct = latest;
+      }
+    } catch {
+      // A confirmação final do estoque também acontece no servidor ao registrar o pedido.
+    }
+    if (currentProduct.stock <= 0) return false;
+    setCart((current) => updateCartQuantity(current, currentProduct, 1));
+    setToast(`${currentProduct.name} adicionado ao carrinho`);
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     toastTimerRef.current = window.setTimeout(() => setToast(""), 2200);
+    return true;
   }
 
   function changeQuantity(product: Product, delta: number) {
@@ -281,10 +303,10 @@ export function Storefront() {
         </div>
         {loading ? <div className="product-grid" aria-label="Carregando produtos">{[1,2,3].map((item) => <div className="product-skeleton" key={item} />)}</div> : filtered.length ? (
           <div className="product-grid">{filtered.map((product, index) => (
-            <article className="product-card" key={product.id}>
-              <button className="product-image" onClick={() => setSelected(product)} aria-label={`Ver detalhes do ${product.name}`}><span className="product-number">{String(index + 1).padStart(2, "0")}</span>{product.featured && <span className="product-badge">Destaque</span>}<img src={product.imageUrl} alt={product.name} loading="lazy" decoding="async" /></button>
+            <article className={`product-card ${product.stock === 0 ? "is-sold-out" : ""}`} key={product.id}>
+              <button className="product-image" onClick={() => setSelected(product)} aria-label={`Ver detalhes do ${product.name}`}><span className="product-number">{String(index + 1).padStart(2, "0")}</span>{product.stock === 0 ? <span className="sold-out-badge">Esgotado</span> : product.featured && <span className="product-badge">Destaque</span>}<img src={product.imageUrl} alt={product.name} loading="lazy" decoding="async" /></button>
               <div className="product-info"><div><span>{product.eyebrow}</span><h3>{product.name}</h3></div><div className="product-price">{product.compareAtPriceCents && <del>{money(product.compareAtPriceCents)}</del>}<strong>{money(product.priceCents)}</strong><small>ou 6x de {money(Math.round(product.priceCents / 6))}</small></div></div>
-              <button className="add-button" disabled={product.stock === 0} onClick={() => addToCart(product)}>{product.stock === 0 ? "Indisponível" : "Adicionar ao carrinho"}<span>+</span></button>
+              <button className="add-button" disabled={product.stock <= 0} onClick={() => void addToCart(product)}>{product.stock <= 0 ? "Produto esgotado" : "Adicionar ao carrinho"}<span>{product.stock <= 0 ? "—" : "+"}</span></button>
             </article>
           ))}</div>
         ) : <div className="empty-state"><h3>Nenhum relógio encontrado.</h3><p>Tente buscar outro nome ou remover o filtro.</p><button className="text-link" onClick={() => { setQuery(""); setCategory("Todos"); }}>Limpar filtros</button></div>}
@@ -306,7 +328,7 @@ export function Storefront() {
       <div className={cartOpen ? "overlay is-open" : "overlay"} onClick={() => setCartOpen(false)} />
       <aside className={cartOpen ? "cart-drawer is-open" : "cart-drawer"} aria-hidden={!cartOpen} inert={!cartOpen}>
         <div className="drawer-header"><div><span>Seu carrinho</span><h2>{count} {count === 1 ? "item" : "itens"}</h2></div><button className="close-button" onClick={() => setCartOpen(false)} aria-label="Fechar carrinho">×</button></div>
-        {cartItems.length ? <><div className="cart-items">{cartItems.map(({ product, quantity }) => <article className="cart-item" key={product.id}><img src={product.imageUrl} alt="" loading="lazy" decoding="async" /><div><span>{product.category}</span><h3>{product.name}</h3><strong>{money(product.priceCents)}</strong><div className="quantity"><button onClick={() => changeQuantity(product, -1)} aria-label={`Diminuir ${product.name}`}>−</button><b>{quantity}</b><button disabled={quantity >= product.stock} onClick={() => changeQuantity(product, 1)} aria-label={`Aumentar ${product.name}`}>+</button></div></div></article>)}</div><div className="cart-summary">{freeShippingRemaining > 0 ? <p>Faltam <strong>{money(freeShippingRemaining)}</strong> para o frete grátis.</p> : <p className="success">✓ Você ganhou frete grátis.</p>}<div className="progress"><span style={{ width: `${Math.min(100, subtotal / 400)}%` }} /></div><dl><dt>Subtotal</dt><dd>{money(subtotal)}</dd><dt>Entrega</dt><dd>{subtotal >= 40000 ? "Grátis" : "A calcular"}</dd></dl><button className="button primary full" onClick={checkout}>Continuar pedido <span>→</span></button><small>Você não paga agora. A Almare confirmará os dados diretamente com você.</small></div></> : <div className="cart-empty"><span>00</span><h3>Seu carrinho está vazio.</h3><p>Descubra a coleção e escolha o relógio que combina com o seu momento.</p><button className="button primary" onClick={() => { setCartOpen(false); document.getElementById("colecao")?.scrollIntoView({ behavior: "smooth" }); }}>Explorar coleção</button></div>}
+        {cartItems.length ? <><div className="cart-items">{cartItems.map(({ product, quantity }) => <article className="cart-item" key={product.id}><img src={product.imageUrl} alt="" loading="lazy" decoding="async" /><div><span>{product.category}</span><h3>{product.name}</h3><strong>{money(product.priceCents)}</strong><div className="quantity"><button onClick={() => changeQuantity(product, -1)} aria-label={`Diminuir ${product.name}`}>−</button><b>{quantity}</b><button disabled={quantity >= 99} onClick={() => changeQuantity(product, 1)} aria-label={`Aumentar ${product.name}`}>+</button></div></div></article>)}</div><div className="cart-summary">{freeShippingRemaining > 0 ? <p>Faltam <strong>{money(freeShippingRemaining)}</strong> para o frete grátis.</p> : <p className="success">✓ Você ganhou frete grátis.</p>}<div className="progress"><span style={{ width: `${Math.min(100, subtotal / 400)}%` }} /></div><dl><dt>Subtotal</dt><dd>{money(subtotal)}</dd><dt>Entrega</dt><dd>{subtotal >= 40000 ? "Grátis" : "A calcular"}</dd></dl><button className="button primary full" onClick={checkout}>Continuar pedido <span>→</span></button><small>Você não paga agora. A Almare confirmará os dados diretamente com você.</small></div></> : <div className="cart-empty"><span>00</span><h3>Seu carrinho está vazio.</h3><p>Descubra a coleção e escolha o relógio que combina com o seu momento.</p><button className="button primary" onClick={() => { setCartOpen(false); document.getElementById("colecao")?.scrollIntoView({ behavior: "smooth" }); }}>Explorar coleção</button></div>}
       </aside>
 
       {checkoutOpen && <div className="modal-wrap checkout-modal-wrap" role="dialog" aria-modal="true" aria-label="Finalizar pedido">
@@ -322,7 +344,7 @@ export function Storefront() {
         </div>
       </div>}
 
-      {selected && <div className="modal-wrap" role="dialog" aria-modal="true" aria-label={`Detalhes do ${selected.name}`}><button className="modal-backdrop" onClick={() => setSelected(null)} aria-label="Fechar detalhes" /><div className="product-modal"><button className="close-button" onClick={() => setSelected(null)} aria-label="Fechar detalhes">×</button><div className="modal-image"><img src={selected.imageUrl} alt={selected.name} /></div><div className="modal-content"><span className="section-kicker">{selected.eyebrow}</span><h2>{selected.name}</h2><p>{selected.description}</p><strong className="modal-price">{money(selected.priceCents)}</strong><small>ou 6x de {money(Math.round(selected.priceCents / 6))}</small><dl><div><dt>Caixa</dt><dd>{selected.caseColor}</dd></div><div><dt>Pulseira</dt><dd>{selected.strap}</dd></div><div><dt>Movimento</dt><dd>{selected.movement}</dd></div><div><dt>Resistência</dt><dd>{selected.waterResistance}</dd></div></dl><button className="button primary full" disabled={selected.stock === 0} onClick={() => { addToCart(selected); setSelected(null); setCartOpen(true); }}>{selected.stock ? "Adicionar ao carrinho" : "Indisponível"}<span>+</span></button><p className="stock-note">{selected.stock > 0 ? `Envio imediato · ${selected.stock} unidades disponíveis` : "Produto temporariamente indisponível"}</p></div></div></div>}
+      {selected && <div className="modal-wrap" role="dialog" aria-modal="true" aria-label={`Detalhes do ${selected.name}`}><button className="modal-backdrop" onClick={() => setSelected(null)} aria-label="Fechar detalhes" /><div className={`product-modal ${selected.stock === 0 ? "is-sold-out" : ""}`}><button className="close-button" onClick={() => setSelected(null)} aria-label="Fechar detalhes">×</button><div className="modal-image">{selected.stock === 0 && <span className="modal-sold-out-badge">Esgotado</span>}<img src={selected.imageUrl} alt={selected.name} /></div><div className="modal-content"><span className="section-kicker">{selected.eyebrow}</span><h2>{selected.name}</h2><p>{selected.description}</p><strong className="modal-price">{money(selected.priceCents)}</strong><small>ou 6x de {money(Math.round(selected.priceCents / 6))}</small><dl><div><dt>Caixa</dt><dd>{selected.caseColor}</dd></div><div><dt>Pulseira</dt><dd>{selected.strap}</dd></div><div><dt>Movimento</dt><dd>{selected.movement}</dd></div><div><dt>Resistência</dt><dd>{selected.waterResistance}</dd></div></dl><button className="button primary full" disabled={selected.stock === 0} onClick={async () => { if (await addToCart(selected)) { setSelected(null); setCartOpen(true); } }}>{selected.stock ? "Adicionar ao carrinho" : "Produto esgotado"}<span>{selected.stock ? "+" : "—"}</span></button><p className="stock-note">{selected.stock > 0 ? "Disponível para envio imediato" : "Este relógio está esgotado no momento."}</p></div></div></div>}
       <div className={toast ? "toast is-visible" : "toast"} role="status">{toast}<span>✓</span></div>
     </main>
   );

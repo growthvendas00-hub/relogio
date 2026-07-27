@@ -112,7 +112,7 @@ export async function POST(request: Request) {
       const products = await listProducts(false);
       items = [...quantities.entries()].map(([productId, quantity]) => {
         const product = products.find((item) => item.id === productId);
-        if (!product || !Number.isInteger(quantity) || quantity <= 0 || quantity > product.stock) {
+        if (!product || !Number.isInteger(quantity) || quantity <= 0 || quantity > 100 || product.stock <= 0) {
           throw new Error("Um produto do carrinho está indisponível ou sem estoque suficiente.");
         }
         return {

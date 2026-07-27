@@ -25,20 +25,18 @@ export function readStoredCart(serialized: string | null): CartState {
 }
 
 export function reconcileCart(cart: CartState, products: InventoryItem[]): CartState {
-  const inventory = new Map(products.map((product) => [product.id, Math.max(0, Math.floor(product.stock))]));
+  const availability = new Map(products.map((product) => [product.id, product.stock > 0]));
   const next: CartState = {};
 
   for (const [id, quantity] of Object.entries(cart)) {
-    const stock = inventory.get(id) ?? 0;
-    if (stock > 0) next[id] = Math.min(stock, quantity);
+    if (availability.get(id)) next[id] = Math.min(99, quantity);
   }
 
   return next;
 }
 
 export function updateCartQuantity(cart: CartState, product: InventoryItem, delta: number): CartState {
-  const stock = Math.max(0, Math.floor(product.stock));
-  const quantity = Math.max(0, Math.min(stock, (cart[product.id] ?? 0) + delta));
+  const quantity = product.stock > 0 ? Math.max(0, Math.min(99, (cart[product.id] ?? 0) + delta)) : 0;
   const next = { ...cart };
 
   if (quantity === 0) delete next[product.id];

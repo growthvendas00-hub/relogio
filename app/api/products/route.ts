@@ -77,14 +77,16 @@ function parseProduct(payload: Record<string, unknown>) {
 
 export async function GET(request: Request) {
   try {
-    const includeInactive = new URL(request.url).searchParams.get("all") === "1";
+    const searchParams = new URL(request.url).searchParams;
+    const includeInactive = searchParams.get("all") === "1";
+    const fresh = searchParams.get("fresh") === "1";
     if (includeInactive && !(await getAdminUser())) {
       return Response.json({ error: "Acesso não autorizado." }, { status: 403 });
     }
     return Response.json({
       products: await listProducts(includeInactive),
       ...(includeInactive ? { storageConfigured: catalogStorageConfigured() } : {}),
-    }, { headers: { "cache-control": includeInactive ? "private, no-store" : "public, s-maxage=30, stale-while-revalidate=300" } });
+    }, { headers: { "cache-control": includeInactive || fresh ? "private, no-store" : "public, s-maxage=30, stale-while-revalidate=300" } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Não foi possível carregar os produtos." }, { status: 500 });
   }
