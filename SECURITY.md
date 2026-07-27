@@ -2,7 +2,7 @@
 
 ## Dados protegidos
 
-Pedidos contêm nome, telefone e Instagram do cliente. Esses dados são criptografados pela aplicação antes de serem persistidos e só podem ser consultados por uma sessão administrativa válida.
+Pedidos contêm nome, telefone, Instagram e endereço de entrega do cliente. Esses dados são criptografados pela aplicação antes de serem persistidos e só podem ser consultados por uma sessão administrativa válida.
 
 Nunca publique ou compartilhe os valores de `ADMIN_PASSWORD`, `AUTH_SECRET`, `CUSTOMER_DATA_SECRET` ou tokens do Vercel Blob. Use valores diferentes entre Preview e Production.
 

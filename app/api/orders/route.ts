@@ -1,11 +1,12 @@
 import { getAdminUser } from "@/lib/admin-auth";
-import { normalizeInstagram, normalizeWhatsapp, simplifyProductName, validWhatsapp, type Order } from "@/lib/commerce";
+import { normalizeInstagram, normalizeWhatsapp, simplifyProductName, validWhatsapp, type Order, type ShippingAddress } from "@/lib/commerce";
 import { createOrder, getStoreSettings, listOrders } from "@/lib/commerce-store";
 import { consumeOrderAttempt } from "@/lib/order-rate-limit";
 import { listProducts } from "@/lib/product-store";
 import { isAllowedMutationOrigin, readJsonBody, requestErrorStatus } from "@/lib/request-security";
 
 export const dynamic = "force-dynamic";
+const brazilianStates = new Set(["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]);
 
 function text(value: unknown, max: number) {
   const result = String(value ?? "").trim();
@@ -20,6 +21,25 @@ function singleLine(value: unknown, max: number) {
 function orderCode() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   return `ALM-${date}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
+}
+
+function shippingAddress(value: unknown): ShippingAddress {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Informe o endereço completo de entrega.");
+  const input = value as Record<string, unknown>;
+  const address = {
+    postalCode: String(input.postalCode ?? "").replace(/\D/g, ""),
+    street: singleLine(input.street, 120),
+    number: singleLine(input.number, 20),
+    complement: singleLine(input.complement, 80),
+    district: singleLine(input.district, 80),
+    city: singleLine(input.city, 80),
+    state: singleLine(input.state, 2).toUpperCase(),
+  };
+  if (!/^(?!0{8}$)\d{8}$/.test(address.postalCode)) throw new Error("Informe um CEP válido com 8 números.");
+  if (address.street.length < 2 || address.number.length < 1 || address.district.length < 2 || address.city.length < 2 || !brazilianStates.has(address.state)) {
+    throw new Error("Preencha rua, número, bairro, cidade e estado para a entrega.");
+  }
+  return address;
 }
 
 export async function GET() {
@@ -63,6 +83,7 @@ export async function POST(request: Request) {
     let status: Order["status"] = "new";
     let notes = text(payload.notes, 1000);
     let checkoutSettings: Awaited<ReturnType<typeof getStoreSettings>> | null = null;
+    let address: ShippingAddress | undefined;
 
     if (manual) {
       const description = singleLine(payload.description, 180);
@@ -76,6 +97,7 @@ export async function POST(request: Request) {
       source = "manual";
       status = payload.status === "paid" ? "paid" : "confirmed";
     } else {
+      address = shippingAddress(payload.address);
       const rawItems = Array.isArray(payload.items) ? payload.items : [];
       if (!rawItems.length || rawItems.length > 30) throw new Error("O pedido precisa ter pelo menos um produto.");
       const quantities = new Map<string, number>();
@@ -112,7 +134,7 @@ export async function POST(request: Request) {
     const order: Order = {
       id: crypto.randomUUID(),
       code: orderCode(),
-      customer: { name: customerName, instagram, whatsapp },
+      customer: { name: customerName, instagram, whatsapp, ...(address ? { address } : {}) },
       items,
       subtotalCents,
       shippingCents,

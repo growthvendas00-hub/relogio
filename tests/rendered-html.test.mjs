@@ -108,13 +108,14 @@ test("orders keep simplified product names and editable message templates", () =
   assert.equal(simplifyProductName("Relógio Masculino SKMEI AnaDigi 1146 — Prata e Preto"), "Relógio Masculino SKMEI AnaDigi 1146");
   const rendered = renderOrderMessage(defaultStoreSettings.followupWhatsappTemplate, {
     code: "ALM-TESTE",
-    customer: { name: "João da Silva", whatsapp: "5528999999999", instagram: "joao" },
+    customer: { name: "João da Silva", whatsapp: "5528999999999", instagram: "joao", address: { postalCode: "29300000", street: "Rua da Entrega", number: "123", complement: "Apto 4", district: "Centro", city: "Cachoeiro de Itapemirim", state: "ES" } },
     items: [{ productId: "watch", name: "Relógio Masculino SKMEI AnaDigi 1146 — Prata e Preto", simplifiedName: "Relógio Masculino SKMEI AnaDigi 1146", quantity: 1, unitPriceCents: 24990 }],
     totalCents: 24990,
   });
   assert.match(rendered, /Oi João/);
   assert.match(rendered, /1x Relógio Masculino SKMEI AnaDigi 1146 — R\$\s249,90/);
   assert.doesNotMatch(rendered, /Prata e Preto/);
+  assert.match(rendered, /Rua da Entrega, 123, Apto 4/);
 });
 
 test("commercial management validates prices server-side and protects customer data", async () => {
@@ -128,6 +129,7 @@ test("commercial management validates prices server-side and protects customer d
   assert.match(ordersRoute, /const quantities = new Map/);
   assert.match(ordersRoute, /quantities\.set/);
   assert.match(ordersRoute, /readJsonBody/);
+  assert.match(ordersRoute, /Informe o endereço completo de entrega/);
   assert.match(orderRoute, /await getAdminUser\(\)/);
   assert.match(settingsRoute, /await getAdminUser\(\)/);
   assert.match(store, /AES-GCM/);
@@ -135,4 +137,5 @@ test("commercial management validates prices server-side and protects customer d
   assert.match(dashboard, /Faturamento pago/);
   assert.match(dashboard, /Registrar venda manual/);
   assert.match(dashboard, /Chamar no WhatsApp/);
+  assert.match(dashboard, /Endereço de entrega/);
 });

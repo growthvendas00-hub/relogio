@@ -111,7 +111,14 @@ export async function getStoreSettings(): Promise<StoreSettings> {
   if (!latest) return defaultStoreSettings;
   const response = await fetch(latest.url, { cache: "no-store", signal: AbortSignal.timeout(8_000) });
   if (!response.ok) throw new Error("Não foi possível carregar as configurações da loja.");
-  return { ...defaultStoreSettings, ...await response.json() as Partial<StoreSettings> };
+  const settings = { ...defaultStoreSettings, ...await response.json() as Partial<StoreSettings> };
+  if (settings.customerWhatsappTemplate === "Olá! Quero finalizar meu pedido na Almare:\n\n{itens}\n\nTotal: {total}\nEntrega: {entrega}\n\nMeu nome é {nome}.") {
+    settings.customerWhatsappTemplate = defaultStoreSettings.customerWhatsappTemplate;
+  }
+  if (settings.followupWhatsappTemplate === "Oi {nome}, tudo certo? Estou passando para finalizarmos seu pedido:\n\n{itens}\n\nTotal: {total}\n\nConfirma para mim se está tudo certo, por favor?") {
+    settings.followupWhatsappTemplate = defaultStoreSettings.followupWhatsappTemplate;
+  }
+  return settings;
 }
 
 export async function saveStoreSettings(settings: StoreSettings) {

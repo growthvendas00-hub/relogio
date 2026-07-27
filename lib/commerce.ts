@@ -19,10 +19,20 @@ export type OrderItem = {
   unitPriceCents: number;
 };
 
+export type ShippingAddress = {
+  postalCode: string;
+  street: string;
+  number: string;
+  complement: string;
+  district: string;
+  city: string;
+  state: string;
+};
+
 export type Order = {
   id: string;
   code: string;
-  customer: { name: string; instagram: string; whatsapp: string };
+  customer: { name: string; instagram: string; whatsapp: string; address?: ShippingAddress };
   items: OrderItem[];
   subtotalCents: number;
   shippingCents: number;
@@ -39,8 +49,8 @@ export const defaultStoreSettings: StoreSettings = {
   instagramUrl: "https://www.instagram.com/almare.old/",
   orderMode: "store_followup",
   storeWhatsapp: "5528999187401",
-  customerWhatsappTemplate: "Olá! Quero finalizar meu pedido na Almare:\n\n{itens}\n\nTotal: {total}\nEntrega: {entrega}\n\nMeu nome é {nome}.",
-  followupWhatsappTemplate: "Oi {nome}, tudo certo? Estou passando para finalizarmos seu pedido:\n\n{itens}\n\nTotal: {total}\n\nConfirma para mim se está tudo certo, por favor?",
+  customerWhatsappTemplate: "Olá! Quero finalizar meu pedido na Almare:\n\n{itens}\n\nTotal: {total}\nEntrega: {entrega}\nEndereço: {endereco}\n\nMeu nome é {nome}.",
+  followupWhatsappTemplate: "Oi {nome}, tudo certo? Estou passando para finalizarmos seu pedido:\n\n{itens}\n\nTotal: {total}\nEndereço de entrega: {endereco}\n\nConfirma para mim se está tudo certo, por favor?",
 };
 
 export const orderStatusLabels: Record<OrderStatus, string> = {
@@ -79,6 +89,12 @@ export function renderOrderItems(items: OrderItem[]) {
   return items.map((item) => `${item.quantity}x ${item.simplifiedName} — ${money(item.unitPriceCents * item.quantity)}`).join("\n");
 }
 
+export function formatShippingAddress(address?: ShippingAddress) {
+  if (!address) return "Não informado";
+  const complement = address.complement ? `, ${address.complement}` : "";
+  return `${address.street}, ${address.number}${complement} — ${address.district}, ${address.city}/${address.state} — CEP ${address.postalCode.replace(/^(\d{5})(\d{3})$/, "$1-$2")}`;
+}
+
 export function renderOrderMessage(template: string, order: Pick<Order, "customer" | "items" | "totalCents" | "shippingCents" | "code">) {
   const replacements: Record<string, string> = {
     nome: order.customer.name.split(/\s+/)[0],
@@ -87,6 +103,7 @@ export function renderOrderMessage(template: string, order: Pick<Order, "custome
     total: money(order.totalCents),
     entrega: order.shippingCents === 0 ? "Frete grátis" : order.shippingCents > 0 ? money(order.shippingCents) : "A combinar",
     pedido: order.code,
+    endereco: formatShippingAddress(order.customer.address),
   };
-  return template.replace(/\{(nome|nome_completo|itens|total|entrega|pedido)\}/g, (_, key: string) => replacements[key]);
+  return template.replace(/\{(nome|nome_completo|itens|total|entrega|pedido|endereco)\}/g, (_, key: string) => replacements[key]);
 }
