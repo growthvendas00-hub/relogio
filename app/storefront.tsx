@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { readStoredCart, reconcileCart, updateCartQuantity } from "@/lib/cart";
 import { defaultStoreSettings, money, renderOrderMessage, type Order, type StoreSettings } from "@/lib/commerce";
+import { BrandLogo } from "./brand-logo";
 
 type Product = {
   id: string;
@@ -221,7 +222,7 @@ export function Storefront() {
     <main>
       <div className="announcement">Frete grátis acima de R$ 400 <span /> Enviamos para todo o Brasil</div>
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="Almare — página inicial"><span>A</span>ALMARE</a>
+        <a className="brand" href="#top" aria-label="Almare — página inicial"><BrandLogo priority /></a>
         <nav className={menuOpen ? "main-nav is-open" : "main-nav"} aria-label="Navegação principal">
           <a href="#colecao" onClick={() => setMenuOpen(false)}>Relógios</a>
           <a href="#manifesto" onClick={() => setMenuOpen(false)}>A Almare</a>
@@ -288,7 +289,7 @@ export function Storefront() {
 
       <section className="whatsapp-cta"><span>Conheça a nova Almare</span><h2>Estilo que acompanha<br />o seu momento.</h2><a href={settings.instagramUrl} target="_blank" rel="noreferrer" className="button light">Acompanhar no Instagram <span>↗</span></a></section>
 
-      <footer><a className="brand" href="#top"><span>A</span>ALMARE</a><p>Relógios masculinos com presença.</p><div><a href="#colecao">Coleção</a><a href="#beneficios">Garantias</a><a href={settings.instagramUrl} target="_blank" rel="noreferrer">Instagram</a><a href={`https://wa.me/${settings.storeWhatsapp}`} target="_blank" rel="noreferrer">WhatsApp</a><a href="/admin">Admin</a></div><small>© 2026 Almare. Todos os direitos reservados.</small></footer>
+      <footer><a className="brand" href="#top" aria-label="Voltar ao início"><BrandLogo /></a><p>Relógios masculinos com presença.</p><div><a href="#colecao">Coleção</a><a href="#beneficios">Garantias</a><a href={settings.instagramUrl} target="_blank" rel="noreferrer">Instagram</a><a href={`https://wa.me/${settings.storeWhatsapp}`} target="_blank" rel="noreferrer">WhatsApp</a><a href="/admin">Admin</a></div><small>© 2026 Almare. Todos os direitos reservados.</small></footer>
 
       <div className={cartOpen ? "overlay is-open" : "overlay"} onClick={() => setCartOpen(false)} />
       <aside className={cartOpen ? "cart-drawer is-open" : "cart-drawer"} aria-hidden={!cartOpen} inert={!cartOpen}>

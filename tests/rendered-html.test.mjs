@@ -9,8 +9,9 @@ const root = new URL("../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
 
 test("storefront includes the MVP sales flow", async () => {
-  const [storefront, styles, layout, commerce] = await Promise.all([read("app/storefront.tsx"), read("app/globals.css"), read("app/layout.tsx"), read("lib/commerce.ts")]);
-  assert.match(storefront, /ALMARE/);
+  const [storefront, styles, layout, commerce, brand] = await Promise.all([read("app/storefront.tsx"), read("app/globals.css"), read("app/layout.tsx"), read("lib/commerce.ts"), read("app/brand-logo.tsx")]);
+  assert.match(brand, /ALMARE/);
+  assert.match(brand, /almare-logo\.webp/);
   assert.match(commerce, /5528999187401/);
   assert.match(commerce, /instagram\.com\/almare\.old/);
   assert.match(storefront, /40000/);
@@ -30,6 +31,8 @@ test("storefront includes the MVP sales flow", async () => {
   assert.match(styles, /prefers-reduced-motion/);
   assert.match(layout, /og\.png/);
   await access(new URL("public/og.png", root));
+  await access(new URL("public/almare-logo.webp", root));
+  await access(new URL("public/almare-icon.png", root));
   await access(new URL("public/hero/aurum-watch.mp4", root));
   await Promise.all([
     "skmei-1146", "tuguir-tg1156", "skmei-2120-dourado", "skmei-2120-prata", "skmei-0992",

@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(origin),
     title: { default: "Almare | Relógios masculinos", template: "%s | Almare" },
     description: "Relógios masculinos com design urbano, garantia de 30 dias e envio imediato.",
-    icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
+    icons: { icon: "/almare-icon.png", shortcut: "/almare-icon.png", apple: "/almare-icon.png" },
     openGraph: { type: "website", locale: "pt_BR", siteName: "Almare", title: "Almare — Seu tempo. Sua presença.", description: "Relógios masculinos com design urbano, garantia de 30 dias e envio imediato.", images: [{ url: `${origin}/og.png`, width: 1200, height: 630, alt: "Almare — Seu tempo. Sua presença." }] },
     twitter: { card: "summary_large_image", title: "Almare — Seu tempo. Sua presença.", description: "Relógios masculinos com design urbano e envio imediato.", images: [`${origin}/og.png`] },
   };
