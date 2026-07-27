@@ -3,14 +3,16 @@ import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 import { readStoredCart, reconcileCart, updateCartQuantity } from "../lib/cart.ts";
 import { isAllowedMutationOrigin, isSafeProductImage } from "../lib/request-security.ts";
+import { defaultStoreSettings, renderOrderMessage, simplifyProductName } from "../lib/commerce.ts";
 
 const root = new URL("../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
 
 test("storefront includes the MVP sales flow", async () => {
-  const [storefront, styles, layout] = await Promise.all([read("app/storefront.tsx"), read("app/globals.css"), read("app/layout.tsx")]);
-  assert.match(storefront, /AURUM/);
-  assert.match(storefront, /5528999187401/);
+  const [storefront, styles, layout, commerce] = await Promise.all([read("app/storefront.tsx"), read("app/globals.css"), read("app/layout.tsx"), read("lib/commerce.ts")]);
+  assert.match(storefront, /ALMARE/);
+  assert.match(commerce, /5528999187401/);
+  assert.match(commerce, /instagram\.com\/almare\.old/);
   assert.match(storefront, /40000/);
   assert.match(storefront, /SKMEI AnaDigi 1146/);
   assert.match(storefront, /Tuguir AnaDigi TG1156/);
@@ -97,4 +99,34 @@ test("mutation origins and product image references are restricted", () => {
     "http://store.public.blob.vercel-storage.com/products/watch.webp",
     "products/watch.webp",
   ), false);
+});
+
+test("orders keep simplified product names and editable message templates", () => {
+  assert.equal(simplifyProductName("Relógio Masculino SKMEI AnaDigi 1146 — Prata e Preto"), "Relógio Masculino SKMEI AnaDigi 1146");
+  const rendered = renderOrderMessage(defaultStoreSettings.followupWhatsappTemplate, {
+    code: "ALM-TESTE",
+    customer: { name: "João da Silva", whatsapp: "5528999999999", instagram: "joao" },
+    items: [{ productId: "watch", name: "Relógio Masculino SKMEI AnaDigi 1146 — Prata e Preto", simplifiedName: "Relógio Masculino SKMEI AnaDigi 1146", quantity: 1, unitPriceCents: 24990 }],
+    totalCents: 24990,
+  });
+  assert.match(rendered, /Oi João/);
+  assert.match(rendered, /1x Relógio Masculino SKMEI AnaDigi 1146 — R\$\s249,90/);
+  assert.doesNotMatch(rendered, /Prata e Preto/);
+});
+
+test("commercial management validates prices server-side and protects customer data", async () => {
+  const [ordersRoute, orderRoute, settingsRoute, store, dashboard] = await Promise.all([
+    read("app/api/orders/route.ts"), read("app/api/orders/[id]/route.ts"), read("app/api/settings/route.ts"),
+    read("lib/commerce-store.ts"), read("app/admin/commerce-dashboard.tsx"),
+  ]);
+  assert.match(ordersRoute, /await listProducts\(false\)/);
+  assert.match(ordersRoute, /unitPriceCents: product\.priceCents/);
+  assert.match(ordersRoute, /consumeOrderAttempt/);
+  assert.match(orderRoute, /await getAdminUser\(\)/);
+  assert.match(settingsRoute, /await getAdminUser\(\)/);
+  assert.match(store, /AES-GCM/);
+  assert.match(store, /CUSTOMER_DATA_SECRET \|\| process\.env\.AUTH_SECRET/);
+  assert.match(dashboard, /Faturamento pago/);
+  assert.match(dashboard, /Registrar venda manual/);
+  assert.match(dashboard, /Chamar no WhatsApp/);
 });

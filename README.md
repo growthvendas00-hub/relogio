@@ -1,6 +1,6 @@
-# AURUM — e-commerce de relógios
+# Almare — e-commerce de relógios
 
-MVP responsivo de uma loja de relógios masculinos com estética de luxo urbano, carrinho e fechamento do pedido pelo WhatsApp. Inclui painel administrativo para editar produtos, preços, estoque, descrições e fotos sem alterar o código.
+MVP responsivo de uma loja de relógios masculinos com estética de luxo urbano, carrinho, cadastro de pedidos e atendimento pelo WhatsApp. Inclui gestão de pedidos, clientes, faturamento, vendas manuais, mensagens e catálogo sem alterar o código.
 
 ## Publicar na Vercel
 
@@ -11,6 +11,7 @@ MVP responsivo de uma loja de relógios masculinos com estética de luxo urbano,
    - `ADMIN_EMAIL`: `malagoligrowth@gmail.com`
    - `ADMIN_PASSWORD`: uma senha forte com pelo menos 10 caracteres
    - `AUTH_SECRET`: um segredo aleatório com pelo menos 32 caracteres
+   - `CUSTOMER_DATA_SECRET`: outro segredo aleatório com pelo menos 32 caracteres (recomendado para criptografar os dados dos clientes)
 5. Faça um novo deploy para aplicar as variáveis.
 6. Acesse `/admin`, entre com a senha escolhida e cadastre seus produtos.
 
@@ -23,7 +24,11 @@ As variáveis devem ser habilitadas em Production. Se quiser testar o painel em 
 - Fotos aceitas: JPG, PNG ou WebP, com até 8 MB.
 - A sessão administrativa expira após 12 horas e usa cookie seguro.
 - O carrinho é salvo no navegador do cliente.
-- O pedido é enviado para o WhatsApp `+55 28 99918-7401`.
+- Todo pedido feito no site é registrado no painel antes do atendimento.
+- Em **Configurações**, escolha se o cliente abre o WhatsApp ou se a Almare entra em contato depois.
+- Pedidos externos podem ser registrados manualmente para compor o faturamento.
+- O faturamento considera somente pedidos marcados como **Pago**.
+- Nome, Instagram e WhatsApp dos clientes são criptografados antes de serem gravados no Blob.
 - Frete grátis em compras acima de R$ 400, garantia de 30 dias e envio imediato.
 
 ## Desenvolvimento local
@@ -46,6 +51,7 @@ Para editar o catálogo localmente, preencha `.env.local` com um token de uma lo
 - Antes de aceitar PIX, crie pedidos e valores em um banco no servidor. Nunca aceite total, status de pagamento ou identificador de produto calculado somente pelo navegador.
 - Confirme pagamentos exclusivamente por webhook assinado do provedor, com idempotência, proteção contra repetição, conferência do valor e registro de auditoria.
 - Não marque um pedido como pago pelo simples retorno do cliente à página de sucesso.
+- Não troque `CUSTOMER_DATA_SECRET` depois que já houver pedidos sem antes migrar os dados; a chave é necessária para lê-los.
 
 ## Validação
 

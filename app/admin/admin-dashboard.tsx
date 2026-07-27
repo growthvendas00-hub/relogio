@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { upload } from "@vercel/blob/client";
+import { CommerceDashboard, type AdminView } from "./commerce-dashboard";
 
 type Product = {
   id: string; slug: string; name: string; eyebrow: string; description: string;
@@ -55,6 +56,7 @@ async function optimizeProductImage(file: File) {
 }
 
 export function AdminDashboard({ userName }: { userName: string }) {
+  const [view, setView] = useState<AdminView | "catalog">("dashboard");
   const [products, setProducts] = useState<Product[]>([]);
   const [form, setForm] = useState<FormState>(blank);
   const [loading, setLoading] = useState(true);
@@ -229,8 +231,8 @@ export function AdminDashboard({ userName }: { userName: string }) {
 
   return (
     <main className="admin-shell">
-      <aside className="admin-sidebar"><Link className="brand" href="/"><span>A</span>AURUM</Link><nav><a className="active" href="#catalogo">Catálogo</a><Link href="/" target="_blank">Ver loja ↗</Link></nav><div><span>Administrador</span><strong>{userName}</strong><button type="button" onClick={signOut}>Sair</button></div></aside>
-      <section className="admin-main" id="catalogo">
+      <aside className="admin-sidebar"><Link className="brand" href="/"><span>A</span>ALMARE</Link><nav><button className={view === "dashboard" ? "active" : ""} type="button" onClick={() => setView("dashboard")}>Dashboard</button><button className={view === "orders" ? "active" : ""} type="button" onClick={() => setView("orders")}>Pedidos</button><button className={view === "customers" ? "active" : ""} type="button" onClick={() => setView("customers")}>Clientes</button><button className={view === "catalog" ? "active" : ""} type="button" onClick={() => setView("catalog")}>Catálogo</button><button className={view === "settings" ? "active" : ""} type="button" onClick={() => setView("settings")}>Configurações</button><Link href="/" target="_blank">Ver loja ↗</Link></nav><div><span>Administrador</span><strong>{userName}</strong><button type="button" onClick={signOut}>Sair</button></div></aside>
+      {view === "catalog" ? <section className="admin-main" id="catalogo">
         <header className="admin-header"><div><span>Painel administrativo</span><h1>Catálogo</h1><p>Cadastre e mantenha os relógios exibidos na sua loja.</p></div><button className="button primary" onClick={openNew}>Novo produto <b>+</b></button></header>
         {storageConfigured === false && <div className="admin-storage-warning" role="alert"><div><strong>Conecte o armazenamento para liberar as edições</strong><p>Os produtos demonstrativos estão em modo de leitura. Na Vercel, crie um Blob público, conecte ao projeto e faça um novo deploy.</p></div><a href="https://vercel.com/dashboard" target="_blank" rel="noreferrer">Abrir Vercel ↗</a></div>}
         {notice && <div className={`admin-notice ${notice.type}`} role="status">{notice.text}<button onClick={() => setNotice(null)}>×</button></div>}
@@ -238,7 +240,7 @@ export function AdminDashboard({ userName }: { userName: string }) {
         <div className="admin-table-wrap"><div className="admin-table-heading"><h2>Seus relógios</h2><span>{products.length} produtos</span></div>
           {loading ? <div className="admin-loading">Carregando catálogo...</div> : products.length ? <div className="admin-products">{products.map((product) => <article className="admin-product" key={product.id}><img src={product.imageUrl} alt="" loading="lazy" decoding="async" /><div className="admin-product-name"><span>{product.category}</span><strong>{product.name}</strong><small>{product.stock} em estoque</small></div><div className="admin-product-price"><span>Preço</span><strong>{money(product.priceCents)}</strong></div><label className="status-toggle"><input type="checkbox" checked={product.active} disabled={Boolean(mutatingProductId)} onChange={() => toggle(product)} /><span />{product.active ? "Visível" : "Oculto"}</label><div className="row-actions"><button disabled={Boolean(mutatingProductId)} onClick={() => openEdit(product)}>Editar</button><button className="danger" disabled={Boolean(mutatingProductId)} onClick={() => remove(product)}>Excluir</button></div></article>)}</div> : <div className="admin-empty"><h3>Seu catálogo está vazio.</h3><p>Adicione o primeiro relógio para ele aparecer na loja.</p><button className="button primary" onClick={openNew}>Adicionar produto</button></div>}
         </div>
-      </section>
+      </section> : <CommerceDashboard view={view} />}
 
       <div className={panelOpen ? "admin-overlay open" : "admin-overlay"} onClick={() => !saving && !optimizing && setPanelOpen(false)} />
       <aside className={panelOpen ? "editor-panel open" : "editor-panel"} aria-hidden={!panelOpen} inert={!panelOpen}><form onSubmit={submit}>

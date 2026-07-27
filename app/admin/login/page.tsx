@@ -11,7 +11,7 @@ export default async function AdminLoginPage() {
   if (await getAdminUser()) redirect("/admin");
   return (
     <main className="admin-access">
-      <Link className="brand" href="/"><span>A</span>AURUM</Link>
+      <Link className="brand" href="/"><span>A</span>ALMARE</Link>
       <div>
         <span>Painel administrativo</span>
         <h1>Gerencie sua loja.</h1>

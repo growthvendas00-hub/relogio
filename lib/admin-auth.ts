@@ -40,7 +40,7 @@ export async function verifyAdminPassword(password: string) {
 }
 
 export async function createAdminSession() {
-  const email = process.env.ADMIN_EMAIL ?? "Administrador AURUM";
+  const email = process.env.ADMIN_EMAIL ?? "Administrador Almare";
   const payload: SessionPayload = { email, expiresAt: Date.now() + SESSION_DURATION_SECONDS * 1000 };
   const encoded = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
   const signed = base64UrlEncode(await signature(encoded));

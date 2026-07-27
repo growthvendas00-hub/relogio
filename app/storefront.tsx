@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { readStoredCart, reconcileCart, updateCartQuantity } from "@/lib/cart";
+import { defaultStoreSettings, money, renderOrderMessage, type Order, type StoreSettings } from "@/lib/commerce";
 
 type Product = {
   id: string;
@@ -38,8 +39,6 @@ const fallbackProducts: Product[] = [
   { id: "weide-wh5205", slug: "weide-anadigi-wh5205-prata-preto", name: "Relógio Masculino Weide AnaDigi WH-5205 — Prata e Preto", eyebrow: "Rugged premium", description: "Caixa robusta em prata e preto, mostrador ana-digital multifunções, detalhes vermelhos e pulseira esportiva em borracha.", priceCents: 28990, compareAtPriceCents: null, stock: 1, category: "Esportivo", caseColor: "Prata e preto", strap: "Borracha preta", movement: "Analógico e digital", waterResistance: "Consulte condições", imageUrl: "/products/weide-wh5205.webp", featured: false, active: true },
 ];
 
-const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
-
 export function Storefront() {
   const [products, setProducts] = useState<Product[]>(fallbackProducts);
   const [loading, setLoading] = useState(true);
@@ -51,6 +50,12 @@ export function Storefront() {
   const [selected, setSelected] = useState<Product | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [toast, setToast] = useState("");
+  const [settings, setSettings] = useState<StoreSettings>(defaultStoreSettings);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutSaving, setCheckoutSaving] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
+  const [completedOrder, setCompletedOrder] = useState<{ code: string; mode: StoreSettings["orderMode"] } | null>(null);
+  const [customer, setCustomer] = useState({ name: "", instagram: "", whatsapp: "", consent: false, website: "" });
   const heroRef = useRef<HTMLElement>(null);
   const heroVideoRef = useRef<HTMLVideoElement>(null);
   const toastTimerRef = useRef<number | null>(null);
@@ -70,6 +75,10 @@ export function Storefront() {
       })
       .catch(() => setCart((current) => reconcileCart(current, fallbackProducts)))
       .finally(() => setLoading(false));
+    fetch("/api/settings", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((data) => setSettings((current) => ({ ...current, ...data.settings })))
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -79,19 +88,20 @@ export function Storefront() {
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
   }, []);
   useEffect(() => {
-    document.body.classList.toggle("no-scroll", cartOpen || Boolean(selected) || menuOpen);
+    document.body.classList.toggle("no-scroll", cartOpen || checkoutOpen || Boolean(selected) || menuOpen);
     return () => document.body.classList.remove("no-scroll");
-  }, [cartOpen, selected, menuOpen]);
+  }, [cartOpen, checkoutOpen, selected, menuOpen]);
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setCartOpen(false);
       setSelected(null);
       setMenuOpen(false);
+      if (!checkoutSaving) setCheckoutOpen(false);
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, []);
+  }, [checkoutSaving]);
 
   useEffect(() => {
     const hero = heroRef.current;
@@ -167,20 +177,54 @@ export function Storefront() {
   }
 
   function checkout() {
-    const lines = cartItems.map(({ product, quantity }) => `• ${quantity}x ${product.name} — ${money(product.priceCents * quantity)}`);
-    const shipping = subtotal >= 40000 ? "Frete grátis" : "Frete a calcular";
-    const message = ["Olá! Quero finalizar meu pedido na AURUM:", "", ...lines, "", `Subtotal: ${money(subtotal)}`, `Entrega: ${shipping}`, "", "Pode me orientar sobre pagamento e entrega?"].join("\n");
-    window.open(`https://wa.me/5528999187401?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+    setCartOpen(false);
+    setCheckoutError("");
+    setCompletedOrder(null);
+    setCheckoutOpen(true);
+  }
+
+  async function submitCheckout(event: React.FormEvent) {
+    event.preventDefault();
+    if (checkoutSaving) return;
+    setCheckoutSaving(true);
+    setCheckoutError("");
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          customerName: customer.name,
+          instagram: customer.instagram,
+          whatsapp: customer.whatsapp,
+          consent: customer.consent,
+          website: customer.website,
+          items: cartItems.map(({ product, quantity }) => ({ productId: product.id, quantity })),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      const order = data.order as Order;
+      setCompletedOrder({ code: order.code, mode: data.orderMode });
+      setCart({});
+      if (data.orderMode === "customer_whatsapp") {
+        const message = renderOrderMessage(data.customerWhatsappTemplate, order);
+        window.open(`https://wa.me/${data.storeWhatsapp}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+      }
+    } catch (error) {
+      setCheckoutError(error instanceof Error ? error.message : "Não foi possível registrar o pedido.");
+    } finally {
+      setCheckoutSaving(false);
+    }
   }
 
   return (
     <main>
       <div className="announcement">Frete grátis acima de R$ 400 <span /> Enviamos para todo o Brasil</div>
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="AURUM — página inicial"><span>A</span>AURUM</a>
+        <a className="brand" href="#top" aria-label="Almare — página inicial"><span>A</span>ALMARE</a>
         <nav className={menuOpen ? "main-nav is-open" : "main-nav"} aria-label="Navegação principal">
           <a href="#colecao" onClick={() => setMenuOpen(false)}>Relógios</a>
-          <a href="#manifesto" onClick={() => setMenuOpen(false)}>A AURUM</a>
+          <a href="#manifesto" onClick={() => setMenuOpen(false)}>A Almare</a>
           <a href="#beneficios" onClick={() => setMenuOpen(false)}>Garantias</a>
         </nav>
         <div className="header-actions">
@@ -189,7 +233,7 @@ export function Storefront() {
         </div>
       </header>
 
-      <section className="hero hero-scroll" id="top" ref={heroRef} aria-label="Apresentação AURUM">
+      <section className="hero hero-scroll" id="top" ref={heroRef} aria-label="Apresentação Almare">
         <div className="hero-stage">
           <video ref={heroVideoRef} className="hero-video" src="/hero/aurum-watch.mp4" muted playsInline preload="auto" aria-hidden="true" />
           <div className="hero-video-shade" />
@@ -214,7 +258,7 @@ export function Storefront() {
         </div>
       </section>
 
-      <section className="ticker" aria-label="Diferenciais"><div>AÇO INOXIDÁVEL <i /> DESIGN MASCULINO <i /> ENVIO IMEDIATO <i /> GARANTIA AURUM <i /> AÇO INOXIDÁVEL <i /> DESIGN MASCULINO</div></section>
+      <section className="ticker" aria-label="Diferenciais"><div>AÇO INOXIDÁVEL <i /> DESIGN MASCULINO <i /> ENVIO IMEDIATO <i /> GARANTIA ALMARE <i /> AÇO INOXIDÁVEL <i /> DESIGN MASCULINO</div></section>
 
       <section className="collection" id="colecao">
         <div className="section-heading"><div><span className="section-kicker">Coleção essencial</span><h2>Feitos para acompanhar<br />o seu ritmo.</h2></div><p>Do preto absoluto ao dourado marcante. Escolha a peça que traduz sua presença.</p></div>
@@ -233,24 +277,26 @@ export function Storefront() {
         ) : <div className="empty-state"><h3>Nenhum relógio encontrado.</h3><p>Tente buscar outro nome ou remover o filtro.</p><button className="text-link" onClick={() => { setQuery(""); setCategory("Todos"); }}>Limpar filtros</button></div>}
       </section>
 
-      <section className="manifesto" id="manifesto"><div className="manifesto-mark">A</div><div><span className="section-kicker">Manifesto AURUM</span><h2>Não é sobre contar as horas.<br /><em>É sobre fazer cada uma valer.</em></h2><p>Acreditamos que estilo não precisa pedir licença. Cada AURUM nasce para acompanhar homens que sabem onde querem chegar — com confiança, precisão e personalidade.</p></div></section>
+      <section className="manifesto" id="manifesto"><div className="manifesto-mark">A</div><div><span className="section-kicker">Manifesto Almare</span><h2>Não é sobre contar as horas.<br /><em>É sobre fazer cada uma valer.</em></h2><p>Acreditamos que estilo não precisa pedir licença. Cada peça Almare nasce para acompanhar homens que sabem onde querem chegar — com confiança, precisão e personalidade.</p></div></section>
 
       <section className="benefits" id="beneficios">
         <article><span>01</span><h3>Envio imediato</h3><p>Seu pedido é preparado e despachado em até 24 horas úteis.</p></article>
         <article><span>02</span><h3>Garantia de 30 dias</h3><p>Compre com tranquilidade. Nossa garantia acompanha cada peça.</p></article>
         <article><span>03</span><h3>Frete grátis</h3><p>Entrega gratuita para todo o Brasil em compras acima de R$ 400.</p></article>
-        <article><span>04</span><h3>Atendimento direto</h3><p>Fale com a AURUM no WhatsApp antes, durante e depois da compra.</p></article>
+        <article><span>04</span><h3>Atendimento direto</h3><p>Fale com a Almare antes, durante e depois da compra.</p></article>
       </section>
 
-      <section className="whatsapp-cta"><span>Escolha seu próximo relógio</span><h2>Pronto para marcar<br />seu momento?</h2><a href="https://wa.me/5528999187401?text=Olá!%20Quero%20conhecer%20os%20relógios%20AURUM." target="_blank" rel="noreferrer" className="button light">Falar com um consultor <span>↗</span></a></section>
+      <section className="whatsapp-cta"><span>Conheça a nova Almare</span><h2>Estilo que acompanha<br />o seu momento.</h2><a href={settings.instagramUrl} target="_blank" rel="noreferrer" className="button light">Acompanhar no Instagram <span>↗</span></a></section>
 
-      <footer><a className="brand" href="#top"><span>A</span>AURUM</a><p>Relógios masculinos com presença.</p><div><a href="#colecao">Coleção</a><a href="#beneficios">Garantias</a><a href="https://wa.me/5528999187401" target="_blank" rel="noreferrer">WhatsApp</a><a href="/admin">Admin</a></div><small>© 2026 AURUM. Todos os direitos reservados.</small></footer>
+      <footer><a className="brand" href="#top"><span>A</span>ALMARE</a><p>Relógios masculinos com presença.</p><div><a href="#colecao">Coleção</a><a href="#beneficios">Garantias</a><a href={settings.instagramUrl} target="_blank" rel="noreferrer">Instagram</a><a href={`https://wa.me/${settings.storeWhatsapp}`} target="_blank" rel="noreferrer">WhatsApp</a><a href="/admin">Admin</a></div><small>© 2026 Almare. Todos os direitos reservados.</small></footer>
 
       <div className={cartOpen ? "overlay is-open" : "overlay"} onClick={() => setCartOpen(false)} />
       <aside className={cartOpen ? "cart-drawer is-open" : "cart-drawer"} aria-hidden={!cartOpen} inert={!cartOpen}>
         <div className="drawer-header"><div><span>Seu carrinho</span><h2>{count} {count === 1 ? "item" : "itens"}</h2></div><button className="close-button" onClick={() => setCartOpen(false)} aria-label="Fechar carrinho">×</button></div>
-        {cartItems.length ? <><div className="cart-items">{cartItems.map(({ product, quantity }) => <article className="cart-item" key={product.id}><img src={product.imageUrl} alt="" loading="lazy" decoding="async" /><div><span>{product.category}</span><h3>{product.name}</h3><strong>{money(product.priceCents)}</strong><div className="quantity"><button onClick={() => changeQuantity(product, -1)} aria-label={`Diminuir ${product.name}`}>−</button><b>{quantity}</b><button disabled={quantity >= product.stock} onClick={() => changeQuantity(product, 1)} aria-label={`Aumentar ${product.name}`}>+</button></div></div></article>)}</div><div className="cart-summary">{freeShippingRemaining > 0 ? <p>Faltam <strong>{money(freeShippingRemaining)}</strong> para o frete grátis.</p> : <p className="success">✓ Você ganhou frete grátis.</p>}<div className="progress"><span style={{ width: `${Math.min(100, subtotal / 400)}%` }} /></div><dl><dt>Subtotal</dt><dd>{money(subtotal)}</dd><dt>Entrega</dt><dd>{subtotal >= 40000 ? "Grátis" : "A calcular"}</dd></dl><button className="button primary full" onClick={checkout}>Finalizar no WhatsApp <span>↗</span></button><small>Pagamento e endereço serão combinados no atendimento.</small></div></> : <div className="cart-empty"><span>00</span><h3>Seu carrinho está vazio.</h3><p>Descubra a coleção e escolha o relógio que combina com o seu momento.</p><button className="button primary" onClick={() => { setCartOpen(false); document.getElementById("colecao")?.scrollIntoView({ behavior: "smooth" }); }}>Explorar coleção</button></div>}
+        {cartItems.length ? <><div className="cart-items">{cartItems.map(({ product, quantity }) => <article className="cart-item" key={product.id}><img src={product.imageUrl} alt="" loading="lazy" decoding="async" /><div><span>{product.category}</span><h3>{product.name}</h3><strong>{money(product.priceCents)}</strong><div className="quantity"><button onClick={() => changeQuantity(product, -1)} aria-label={`Diminuir ${product.name}`}>−</button><b>{quantity}</b><button disabled={quantity >= product.stock} onClick={() => changeQuantity(product, 1)} aria-label={`Aumentar ${product.name}`}>+</button></div></div></article>)}</div><div className="cart-summary">{freeShippingRemaining > 0 ? <p>Faltam <strong>{money(freeShippingRemaining)}</strong> para o frete grátis.</p> : <p className="success">✓ Você ganhou frete grátis.</p>}<div className="progress"><span style={{ width: `${Math.min(100, subtotal / 400)}%` }} /></div><dl><dt>Subtotal</dt><dd>{money(subtotal)}</dd><dt>Entrega</dt><dd>{subtotal >= 40000 ? "Grátis" : "A calcular"}</dd></dl><button className="button primary full" onClick={checkout}>Continuar pedido <span>→</span></button><small>Você não paga agora. A Almare confirmará os dados diretamente com você.</small></div></> : <div className="cart-empty"><span>00</span><h3>Seu carrinho está vazio.</h3><p>Descubra a coleção e escolha o relógio que combina com o seu momento.</p><button className="button primary" onClick={() => { setCartOpen(false); document.getElementById("colecao")?.scrollIntoView({ behavior: "smooth" }); }}>Explorar coleção</button></div>}
       </aside>
+
+      {checkoutOpen && <div className="modal-wrap checkout-modal-wrap" role="dialog" aria-modal="true" aria-label="Finalizar pedido"><button className="modal-backdrop" onClick={() => !checkoutSaving && setCheckoutOpen(false)} aria-label="Fechar finalização" /><div className="checkout-modal"><button className="close-button" disabled={checkoutSaving} onClick={() => setCheckoutOpen(false)} aria-label="Fechar finalização">×</button>{completedOrder ? <div className="checkout-success"><span>Pedido {completedOrder.code}</span><h2>Pedido recebido.</h2><p>{completedOrder.mode === "customer_whatsapp" ? "Abrimos o WhatsApp com a mensagem pronta. Envie a mensagem para continuarmos o atendimento." : "A Almare recebeu seus dados e entrará em contato pelo WhatsApp para confirmar o pedido."}</p><button className="button primary full" onClick={() => setCheckoutOpen(false)}>Voltar para a loja</button></div> : <form onSubmit={submitCheckout}><span className="section-kicker">Seus dados</span><h2>Como falamos com você?</h2><p>Revise seu carrinho e deixe seus contatos. Nenhum pagamento será feito agora.</p><label><span>Nome *</span><input required maxLength={100} autoComplete="name" value={customer.name} onChange={(event) => setCustomer({ ...customer, name: event.target.value })} placeholder="Seu nome" /></label><label><span>WhatsApp com DDD *</span><input required inputMode="tel" autoComplete="tel" value={customer.whatsapp} onChange={(event) => setCustomer({ ...customer, whatsapp: event.target.value })} placeholder="(28) 99999-9999" /></label><label><span>@ do Instagram</span><input maxLength={80} value={customer.instagram} onChange={(event) => setCustomer({ ...customer, instagram: event.target.value })} placeholder="@seuusuario" /></label><label className="honeypot" aria-hidden="true"><span>Site</span><input tabIndex={-1} autoComplete="off" value={customer.website} onChange={(event) => setCustomer({ ...customer, website: event.target.value })} /></label><label className="consent-check"><input required type="checkbox" checked={customer.consent} onChange={(event) => setCustomer({ ...customer, consent: event.target.checked })} /><span />Autorizo a Almare a entrar em contato sobre este pedido.</label>{checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}<div className="checkout-review"><span>{count} {count === 1 ? "item" : "itens"}</span><strong>{money(subtotal)}</strong></div><button className="button primary full" disabled={checkoutSaving}>{checkoutSaving ? "Registrando pedido..." : settings.orderMode === "customer_whatsapp" ? "Registrar e abrir WhatsApp" : "Enviar pedido para a Almare"}<span>→</span></button></form>}</div></div>}
 
       {selected && <div className="modal-wrap" role="dialog" aria-modal="true" aria-label={`Detalhes do ${selected.name}`}><button className="modal-backdrop" onClick={() => setSelected(null)} aria-label="Fechar detalhes" /><div className="product-modal"><button className="close-button" onClick={() => setSelected(null)} aria-label="Fechar detalhes">×</button><div className="modal-image"><img src={selected.imageUrl} alt={selected.name} /></div><div className="modal-content"><span className="section-kicker">{selected.eyebrow}</span><h2>{selected.name}</h2><p>{selected.description}</p><strong className="modal-price">{money(selected.priceCents)}</strong><small>ou 6x de {money(Math.round(selected.priceCents / 6))}</small><dl><div><dt>Caixa</dt><dd>{selected.caseColor}</dd></div><div><dt>Pulseira</dt><dd>{selected.strap}</dd></div><div><dt>Movimento</dt><dd>{selected.movement}</dd></div><div><dt>Resistência</dt><dd>{selected.waterResistance}</dd></div></dl><button className="button primary full" disabled={selected.stock === 0} onClick={() => { addToCart(selected); setSelected(null); setCartOpen(true); }}>{selected.stock ? "Adicionar ao carrinho" : "Indisponível"}<span>+</span></button><p className="stock-note">{selected.stock > 0 ? `Envio imediato · ${selected.stock} unidades disponíveis` : "Produto temporariamente indisponível"}</p></div></div></div>}
       <div className={toast ? "toast is-visible" : "toast"} role="status">{toast}<span>✓</span></div>

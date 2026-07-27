@@ -8,16 +8,16 @@ const sans = DM_Sans({ variable: "--font-sans", subsets: ["latin"] });
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "aurum-relogios.sites.openai.com";
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "relogio-rho-ten.vercel.app";
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
   return {
     metadataBase: new URL(origin),
-    title: { default: "AURUM | Relógios masculinos", template: "%s | AURUM" },
+    title: { default: "Almare | Relógios masculinos", template: "%s | Almare" },
     description: "Relógios masculinos com design urbano, garantia de 30 dias e envio imediato.",
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
-    openGraph: { type: "website", locale: "pt_BR", siteName: "AURUM", title: "AURUM — Seu tempo. Sua presença.", description: "Relógios masculinos com design urbano, garantia de 30 dias e envio imediato.", images: [{ url: `${origin}/og.png`, width: 1200, height: 630, alt: "AURUM — Seu tempo. Sua presença." }] },
-    twitter: { card: "summary_large_image", title: "AURUM — Seu tempo. Sua presença.", description: "Relógios masculinos com design urbano e envio imediato.", images: [`${origin}/og.png`] },
+    openGraph: { type: "website", locale: "pt_BR", siteName: "Almare", title: "Almare — Seu tempo. Sua presença.", description: "Relógios masculinos com design urbano, garantia de 30 dias e envio imediato.", images: [{ url: `${origin}/og.png`, width: 1200, height: 630, alt: "Almare — Seu tempo. Sua presença." }] },
+    twitter: { card: "summary_large_image", title: "Almare — Seu tempo. Sua presença.", description: "Relógios masculinos com design urbano e envio imediato.", images: [`${origin}/og.png`] },
   };
 }
 
